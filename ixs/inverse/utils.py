@@ -321,7 +321,6 @@ class ScatteringProblem():
         self.optim.step()
         self.optim.zero_grad()
 
-
     def save(self,name):
         """
         saves the model
@@ -359,7 +358,6 @@ class ScatteringProblem():
             loader = self.test_loader
             nograd = torch.no_grad()
             nograd.__enter__()
-
 
         batch_idx = 0
         loss_history = []
@@ -479,7 +477,6 @@ class ScatteringProblem():
                 return self.model(self.inputs_norm[data_subset]).cpu().detach()
             except AttributeError:
                 return self.model(self.inputs[data_subset]).cpu().detach()
-            
 
     def create_table_from_outcomes_test(self, pred, data_subset):
         """
@@ -502,8 +499,7 @@ class ScatteringProblem():
             elif 'true' in c:
                 df[c] = sampled_inputs[:,i//2+2*shapes]
         return df
-    
-    
+
     def create_table_from_outcomes(self, pred, data):
         """
         creates a table with all predicted vs true values
@@ -762,8 +758,6 @@ class ScatteringProblemForward(ScatteringProblem):
 
             x, y = x.to(self.device), y.to(self.device)
             x_class, x_features = x[:, :len(self.shapes_dict.keys())],x[:, len(self.shapes_dict.keys()):]
-
-
             
             pred = self.model(y)
             pred = pred.reshape(-1,len(self.shapes_dict.keys())*2 + len(self.input_features)-2)
@@ -776,4 +770,5 @@ class ScatteringProblemForward(ScatteringProblem):
 
         if test:
             nograd.__exit__(None, None, None)
+
         return np.mean(loss_history, axis=0)
