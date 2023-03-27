@@ -19,14 +19,15 @@ import numpy  as np
 import pandas as pd
 import torch
 import torch.utils.data
+import h5py
 import os
 
 from time import time
 from torch.utils.data.sampler import SubsetRandomSampler
 from sklearn.preprocessing import StandardScaler, Normalizer
 
-from .losses     import losses
-from .monitoring import monitoring
+from . import losses
+from . import monitoring
 
 ## ----------------------------------------------------------------------------
 

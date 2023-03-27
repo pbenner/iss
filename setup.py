@@ -16,6 +16,6 @@ setup(
 		'Operating System :: OS Independent',
 		'Programming Language :: Python :: 3',
 	],
-	install_requires = ['torch', 'numpy', 'sasmodels', 'scipy', 'freia', 'mp-pyrho'],
+	install_requires = ['torch', 'numpy', 'sasmodels', 'scipy', 'freia', 'mp-pyrho', 'scikit-learn'],
 	python_requires  = '>3.8'
 )
