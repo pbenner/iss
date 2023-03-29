@@ -192,6 +192,8 @@ class LitModelWrapper(pl.LightningModule):
     def __init__(self,
                  # pytorch model class
                  model,
+                 # Standard arguments for the model
+                 *args,
                  # Learning rate
                  lr = 1e-3, lr_groups = {},
                  # Weight decay
@@ -209,7 +211,7 @@ class LitModelWrapper(pl.LightningModule):
         self.optimizer         = optimizer
         self.optimizer_verbose = optimizer_verbose
         self.scheduler         = scheduler
-        self.model             = model(**kwargs)
+        self.model             = model(*args, **kwargs)
     
     def configure_optimizers(self):
         # Get learning rates

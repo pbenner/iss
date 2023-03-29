@@ -53,6 +53,8 @@ class InvertibleSASModelCore(torch.nn.Module):
             verbose_construction = False,
             ):
 
+        super().__init__()
+
         self.ndim_x              = ndim_x
         self.ndim_y              = ndim_y
         self.ndim_z              = ndim_z
@@ -163,6 +165,7 @@ class InvertibleSASModelCore(torch.nn.Module):
 class InvertibleSASModel():
 
     def __init__(self,
+            *args,
             # Trainer options
             patience = 100, max_epochs = 1000, accelerator = 'gpu', devices = [0], strategy = None,
             # Data options
@@ -170,7 +173,7 @@ class InvertibleSASModel():
             # Model options
             **kwargs):
 
-        self.lit_model           = LitModelWrapper(InvertibleSASModelCore, **kwargs)
+        self.lit_model           = LitModelWrapper(InvertibleSASModelCore, *args, **kwargs)
         self.lit_trainer         = None
         self.lit_trainer_options = {
             'patience'    : patience,
