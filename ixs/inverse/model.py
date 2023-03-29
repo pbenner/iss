@@ -251,7 +251,7 @@ class InvertibleSASModel():
 
     def train(self, data : ScatteringData):
 
-        data = LitTensorDataset(data, self.lit_model.model.model_config, **self.lit_data_options)
+        data = LitTensorDataset(data, **self.lit_data_options)
 
         return self._train(data)
 
@@ -275,7 +275,7 @@ class InvertibleSASModel():
 
     def predict(self, data : ScatteringData):
 
-        data = LitTensorDataset(data, self.lit_model.model.model_config, **self.lit_data_options)
+        data = LitTensorDataset(data, **self.lit_data_options)
 
         return self._predict(data)
 
