@@ -65,7 +65,7 @@ class ScatteringData(torch.utils.data.TensorDataset):
         for i, f in enumerate(files):
             with h5py.File(os.path.join(path, f), 'r') as file:
 
-                print(file, end = '\r')
+                print(f'Reading: {file}', end = '\r')
 
                 assert self.ndim_y ==  torch.from_numpy(file['entry/I'][()].flatten()).shape[0], "scattering curve has different size"
 

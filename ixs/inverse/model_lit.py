@@ -23,8 +23,6 @@ from typing import Optional
 
 from sklearn.model_selection import KFold
 
-from . import ModelCoordinationNet
-
 ## ----------------------------------------------------------------------------
 
 import logging
