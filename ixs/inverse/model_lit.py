@@ -213,7 +213,7 @@ class LitModelWrapper(pl.LightningModule):
                  # Weight decay
                  weight_decay = 0.0,
                  # Other hyperparameters
-                 betas = (0.9, 0.999), factor = 0.8, patience = 5,
+                 betas = (0.9, 0.95), factor = 0.8, patience = 5,
                  # Optimizer and scheduler selection
                  scheduler = None, optimizer = 'Adam', optimizer_verbose = False, **kwargs):
         super().__init__()
