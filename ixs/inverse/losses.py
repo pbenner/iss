@@ -63,5 +63,5 @@ def backward_mmd(x0, x1, mmd_back_kernels):
 
 ## ----------------------------------------------------------------------------
 
-def l2_fit(input, target, batch_size):
-    return torch.sum((input - target)**2) / batch_size
+def l2_fit(input, target):
+    return torch.sum((input - target)**2) / input.shape[0]

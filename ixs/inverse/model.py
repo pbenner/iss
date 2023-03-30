@@ -50,27 +50,33 @@ class InvertibleSASModelCore(torch.nn.Module):
             nblocks              = 5,
             hidden_layer_sizes   = 32,
             exponent_clamping    = 2,
+            train_reconstruction = False,
             verbose_construction = False,
             ):
 
         super().__init__()
 
-        self.ndim_x              = ndim_x
-        self.ndim_y              = ndim_y
-        self.ndim_z              = ndim_z
-        self.ndim_pad_x          = ndim_pad_x
-        self.ndim_pad_zy         = ndim_pad_zy
+        self.ndim_x               = ndim_x
+        self.ndim_y               = ndim_y
+        self.ndim_z               = ndim_z
+        self.ndim_pad_x           = ndim_pad_x
+        self.ndim_pad_zy          = ndim_pad_zy
 
-        self.add_y_noise         = add_y_noise
-        self.add_z_noise         = add_z_noise
-        self.add_pad_noise       = add_pad_noise
-        self.y_uncertainty_sigma = y_uncertainty_sigma
+        self.add_y_noise          = add_y_noise
+        self.add_z_noise          = add_z_noise
+        self.add_pad_noise        = add_pad_noise
+        self.y_uncertainty_sigma  = y_uncertainty_sigma
 
-        self.lambd_fit_forw      = 0.01 
-        self.lambd_mmd_forw      = 100
-        self.lambd_mmd_back      = 500
-        self.lambd_reconstruct   = 1.0
-        self.hidden_layer_sizes  = hidden_layer_sizes
+        self.lambd_fit_forw       = 0.01
+        self.lambd_mmd_forw       = 100
+        self.lambd_mmd_back       = 500
+        self.lambd_reconstruct    = 1.0
+        self.hidden_layer_sizes   = hidden_layer_sizes
+        self.train_reconstruction = False
+
+        self.mmd_forw_kernels     = [(0.2, 1/2), (1.5, 1/2), (3.0, 1/2)]
+        self.mmd_back_kernels     = [(0.2, 1/2), (0.2, 1/2), (0.2, 1/2)]
+        self.mmd_back_weighted    = True
 
         input = Ff.InputNode(ndim_x + ndim_pad_x, name='input')
         nodes = [input]
@@ -108,7 +114,7 @@ class InvertibleSASModelCore(torch.nn.Module):
         """
         Calculates the MMD loss in the backward direction
         """
-        x_samples, _ = self.model(y, rev = True, jac = False) 
+        x_samples, _ = self.freia_model(y, rev = True, jac = False) 
 
         MMD = losses.backward_mmd(x, x_samples, self.mmd_back_kernels) 
 
@@ -126,7 +132,7 @@ class InvertibleSASModelCore(torch.nn.Module):
              out[:, -self.ndim_y:].data), dim=1) 
         y_short = torch.cat((y[:, :self.ndim_z], y[:, -self.ndim_y:]), dim=1)
 
-        l_forw_fit = self.lambd_fit_forw * losses.l2_fit(out[:, self.ndim_z:], y[:, self.ndim_z:], self.batch_size)
+        l_forw_fit = self.lambd_fit_forw * losses.l2_fit(out[:, self.ndim_z:], y[:, self.ndim_z:])
         l_forw_mmd = self.lambd_mmd_forw * torch.mean(losses.forward_mmd(output_block_grad, y_short, self.mmd_forw_kernels))
 
         return l_forw_fit, l_forw_mmd
@@ -158,13 +164,20 @@ class InvertibleSASModelCore(torch.nn.Module):
 
         y_hat, _ = self.freia_model(x, jac = False)
 
-        r = self.loss_forward_mmd(y_hat, y)
+        r = list(self.loss_forward_mmd(y_hat, y))
         r.append(self.loss_backward_mmd(x, y))
 
         if self.train_reconstruction:
             r.append(self.loss_reconstruction(y_hat.data, x))
 
-        return torch.sum(r)
+        return sum(r)
+    
+
+    def __train_step__(self, x, y):
+
+        loss = self.loss(x, y)
+
+        return loss
 
 ## ----------------------------------------------------------------------------
 

@@ -205,7 +205,6 @@ class LitModelWrapper(pl.LightningModule):
         super().__init__()
         # Save all hyperparameters to `hparams` (e.g. lr)
         self.save_hyperparameters()
-        self.loss              = torch.nn.L1Loss()
         self.train_loss        = []
         self.val_loss          = []
         self.optimizer         = optimizer
@@ -270,8 +269,7 @@ class LitModelWrapper(pl.LightningModule):
         """Train model on a single batch"""
         X_batch = batch[0]
         y_batch = batch[1]
-        y_hat   = self(X_batch)
-        loss    = self.loss(y_hat, y_batch)
+        loss    = self.model.__train_step__(X_batch, y_batch)
         self.log('train_loss', loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
         return {'loss': loss}
 
@@ -279,8 +277,7 @@ class LitModelWrapper(pl.LightningModule):
         """Validate model on a single batch"""
         X_batch = batch[0]
         y_batch = batch[1]
-        y_hat   = self(X_batch)
-        loss    = self.loss(y_hat, y_batch)
+        _, loss = self.model.__test_step__(X_batch, y_batch)
         self.log('val_loss', loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
         return {'val_loss': loss}
 
@@ -288,7 +285,7 @@ class LitModelWrapper(pl.LightningModule):
         """Test model on a single batch"""
         X_batch = batch[0]
         y_batch = batch[1]
-        y_hat   = self(X_batch)
+        y_hat, loss = self.model.__test_step__(X_batch, y_batch)
         # Return predictions
         return {'y': y_batch[:,0].detach().cpu(), 'y_hat': y_hat[:,0].detach().cpu()}
 
