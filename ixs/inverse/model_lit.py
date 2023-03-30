@@ -44,7 +44,7 @@ class LitMetricTracker(pl.callbacks.Callback):
     self.train_error.append(torch.mean(torch.tensor(self.train_error_batch)))
     self.train_error_batch = []
 
-  def on_validation_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx):
+  def on_validation_batch_end(self, trainer, pl_module, outputs, batch, batch_idx):
     self.val_error_batch.append(outputs['val_loss'].item())
 
   def on_validation_epoch_end(self, trainer, pl_module):
@@ -143,7 +143,6 @@ class LitTensorDataset(pl.LightningDataModule):
     # This function is called by lightning trainer class with
     # the corresponding stage option
     def setup(self, stage: Optional[str] = None):
-
         # Assign train/val datasets for use in dataloaders
         if stage == 'fit' or stage == None:
             # Check if we are using cross-validation
@@ -270,7 +269,7 @@ class LitModelWrapper(pl.LightningModule):
         X_batch = batch[0]
         y_batch = batch[1]
         loss    = self.model.__train_step__(X_batch, y_batch)
-        self.log('train_loss', loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        self.log('train_loss', loss, on_step=False, on_epoch=True, prog_bar=True, logger=False)
         return {'loss': loss}
 
     def validation_step(self, batch, batch_index):
@@ -278,7 +277,7 @@ class LitModelWrapper(pl.LightningModule):
         X_batch = batch[0]
         y_batch = batch[1]
         _, loss = self.model.__test_step__(X_batch, y_batch)
-        self.log('val_loss', loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        self.log('val_loss', loss, on_step=False, on_epoch=True, prog_bar=True, logger=False)
         return {'val_loss': loss}
 
     def test_step(self, batch, batch_index):

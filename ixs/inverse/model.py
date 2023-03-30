@@ -221,7 +221,7 @@ class InvertibleSASModel():
         self.lit_trainer = pl.Trainer(
             enable_checkpointing = True,
             enable_progress_bar  = True,
-            logger               = True,
+            logger               = False,
             max_epochs           = self.lit_trainer_options['max_epochs'],
             accelerator          = self.lit_trainer_options['accelerator'],
             devices              = self.lit_trainer_options['devices'],
