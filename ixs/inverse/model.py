@@ -27,7 +27,7 @@ from copy import deepcopy
 
 from .          import losses
 from .data      import ScatteringData
-from .model_lit import LitProgressBar, LitNoProgressBar, LitMetricTracker, LitTensorDataset, LitModelWrapper
+from .model_lit import LitProgressBar, LitMetricTracker, LitTensorDataset, LitModelWrapper
 
 ## ----------------------------------------------------------------------------
 

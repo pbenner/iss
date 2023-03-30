@@ -18,7 +18,9 @@
 
 import torch
 import pytorch_lightning as pl
+import sys
 
+from tqdm   import tqdm
 from typing import Optional
 
 from sklearn.model_selection import KFold
@@ -54,6 +56,19 @@ class LitMetricTracker(pl.callbacks.Callback):
 ## ----------------------------------------------------------------------------
 
 class LitProgressBar(pl.callbacks.progress.TQDMProgressBar):
+    def init_train_tqdm(self):
+            """Override this to customize the tqdm bar for training."""
+            bar = tqdm(
+                desc=self.train_description,
+                position=(2 * self.process_position),
+                disable=self.is_disabled,
+                leave=True,
+                dynamic_ncols=True,
+                bar_format='{desc}{percentage:3.0f}%|{postfix}',
+                file=sys.stdout,
+                smoothing=0,
+            )
+            return bar
     # Disable validation progress bar
     def on_validation_start(self, trainer, pl_module):
         pass
@@ -278,10 +293,8 @@ class LitModelWrapper(pl.LightningModule):
         """Validate model on a single batch"""
         X_batch = batch[0]
         y_batch = batch[1]
-        _, loss, loss_components = self.model.__test_step__(X_batch, y_batch)
+        _, loss, _ = self.model.__test_step__(X_batch, y_batch)
         self.log('val_loss', loss, on_step=False, on_epoch=True, prog_bar=True, logger=False)
-        for name, value in loss_components.items():
-            self.log(f'val_{name}', value, on_step=False, on_epoch=True, prog_bar=True, logger=False)
         return {'val_loss': loss}
 
     def test_step(self, batch, batch_index):
