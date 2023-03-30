@@ -91,3 +91,21 @@ class ScatteringData(torch.utils.data.TensorDataset):
                         pass
 
         return inputs, labels, shapes_dict
+
+    def normalize(self, scaler):
+
+        n_shapes = len(self.shapes_dict.keys())
+
+        # Get input data
+        x = self.tensors[0]
+        # Split data matrix into left and right part
+        x_left  = x[:,:n_shapes ]
+        x_right = x[:, n_shapes:]
+
+        # Fit and apply scaler
+        scaler.fit(x[:, n_shapes:])
+
+        x_tmp = torch.from_numpy(scaler.transform(x_right))
+        x_tmp = torch.concatenate((x_left, x_tmp), axis=1).type(torch.float32)
+
+        self.tensors[0].set_(x_tmp)

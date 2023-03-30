@@ -19,11 +19,11 @@
 import dill
 import torch
 import pytorch_lightning as pl
-
 import FrEIA.framework as Ff
 import FrEIA.modules   as Fm
 
 from copy import deepcopy
+from sklearn.preprocessing import StandardScaler
 
 from .          import losses
 from .data      import ScatteringData
@@ -225,6 +225,7 @@ class InvertibleSASModel():
             'batch_size'  : batch_size,
             'num_workers' : num_workers,
         }
+        self.scaler = StandardScaler()
 
     def _setup_trainer_(self):
         self.lit_matric_tracker      = LitMetricTracker()
@@ -289,6 +290,7 @@ class InvertibleSASModel():
 
     def train(self, data : ScatteringData):
 
+        data.normalize(self.scaler)
         data = LitTensorDataset(data, **self.lit_data_options)
 
         return self._train(data)
