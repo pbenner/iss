@@ -213,8 +213,6 @@ class LitModelWrapper(pl.LightningModule):
     def __init__(self,
                  # pytorch model class
                  model,
-                 # Standard arguments for the model
-                 *args,
                  # Trainer options
                  patience = 100, max_epochs = 1000, accelerator = 'gpu', devices = [0], strategy = 'auto',
                  # Data options
@@ -235,7 +233,7 @@ class LitModelWrapper(pl.LightningModule):
         self.optimizer         = optimizer
         self.optimizer_verbose = optimizer_verbose
         self.scheduler         = scheduler
-        self.model             = model(*args, **kwargs)
+        self.model             = model(**kwargs)
 
         self.lit_trainer         = None
         self.lit_trainer_options = {

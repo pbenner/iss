@@ -41,11 +41,11 @@ class InvertibleSASModelCore(torch.nn.Module):
     def __init__(
             self,
             # Data dimensions
-            ndim_x,
-            ndim_y,
-            ndim_z,
-            ndim_pad_x,
-            ndim_pad_zy,
+            ndim_x               = None,
+            ndim_y               = None,
+            ndim_z               = None,
+            ndim_pad_x           = None,
+            ndim_pad_zy          = None,
             # Noise options
             add_y_noise          = 0,
             add_z_noise          = 2e-2,
