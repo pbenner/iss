@@ -91,12 +91,18 @@ class InvertibleSASModelCore(torch.nn.Module):
             torch.nn.Linear(self.hidden_layer_sizes*2, self.hidden_layer_sizes  ), torch.nn.ReLU(),
             torch.nn.Linear(self.hidden_layer_sizes  , dims_out))
 
+    def noise_batch(self, batch_size, ndim, device):
+        """
+        Adds Gaussian noise to the data
+        """
+        return torch.randn(batch_size, ndim, device=device)
+
     def forward(self, x, **kwargs):
 
         if self.ndim_pad_x:
-            x = torch.cat((x, self.add_pad_noise * self.noise_batch(self.ndim_pad_x)), dim=1)
+            x = torch.cat((x, self.add_pad_noise * self.noise_batch(x.shape[0], self.ndim_pad_x, x.device)), dim=1)
 
-        self.freia_model(x, **kwargs)
+        return self.freia_model(x, **kwargs)
 
     def loss_backward_mmd(self, x, y):
         """
@@ -129,12 +135,12 @@ class InvertibleSASModelCore(torch.nn.Module):
         """
         Calculate reconstruction loss
         """
-        cat_inputs = [ out_y[:, :self.ndim_z] + self.add_z_noise * self.noise_batch(self.ndim_z) ]
+        cat_inputs = [ out_y[:, :self.ndim_z] + self.add_z_noise * self.noise_batch(out_y.shape[0], self.ndim_z, out_y.device) ]
         
         if self.ndim_pad_zy:
-            cat_inputs.append(out_y[:, self.ndim_z:-self.ndim_y] + self.add_pad_noise * self.noise_batch(self.ndim_pad_zy)) # list with 2 tensor
+            cat_inputs.append(out_y[:, self.ndim_z:-self.ndim_y] + self.add_pad_noise * self.noise_batch(out_y.shape[0], self.ndim_pad_zy, out_y.device)) # list with 2 tensor
 
-        cat_inputs.append(out_y[:, -self.ndim_y:] + self.add_y_noise * self.noise_batch(self.ndim_y))
+        cat_inputs.append(out_y[:, -self.ndim_y:] + self.add_y_noise * self.noise_batch(out_y.shape[0], self.ndim_y, out_y.device))
         x_reconstructed, _ = self.freia_model(torch.cat(cat_inputs, 1), rev = True, jac = False)
 
         return self.lambd_reconstruct * losses.l2_fit(x_reconstructed[:, :self.ndim_pad_x], x[:,:self.ndim_pad_x], self.batch_size)
@@ -142,13 +148,13 @@ class InvertibleSASModelCore(torch.nn.Module):
     def loss(self, x, y):
 
         if self.add_y_noise > 0:
-            y += self.add_y_noise * self.noise_batch(self.ndim_y)
+            y += self.add_y_noise * self.noise_batch(y.shape[0], self.ndim_y, y.device)
         if self.ndim_pad_x:
-            x = torch.cat((x, self.add_pad_noise * self.noise_batch(self.ndim_pad_x)), dim=1) 
+            x = torch.cat((x, self.add_pad_noise * self.noise_batch(x.shape[0], self.ndim_pad_x, x.device)), dim=1) 
         if self.ndim_pad_zy:
-            y = torch.cat((self.add_pad_noise * self.noise_batch(self.ndim_pad_zy), y), dim=1)
+            y = torch.cat((self.add_pad_noise * self.noise_batch(y.shape[0], self.ndim_pad_zy, y.device), y), dim=1)
 
-        y = torch.cat((self.noise_batch(self.ndim_z), y), dim=1)
+        y = torch.cat((self.noise_batch(y.shape[0], self.ndim_z, y.device), y), dim=1)
 
         y_hat, _ = self.freia_model(x, jac = False)
 
@@ -167,7 +173,7 @@ class InvertibleSASModel():
     def __init__(self,
             *args,
             # Trainer options
-            patience = 100, max_epochs = 1000, accelerator = 'gpu', devices = [0], strategy = None,
+            patience = 100, max_epochs = 1000, accelerator = 'gpu', devices = [0], strategy = 'auto',
             # Data options
             val_size = 0.1, batch_size = 128, num_workers = 2,
             # Model options

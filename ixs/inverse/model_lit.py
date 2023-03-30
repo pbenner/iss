@@ -195,9 +195,9 @@ class LitModelWrapper(pl.LightningModule):
                  # Standard arguments for the model
                  *args,
                  # Learning rate
-                 lr = 1e-3, lr_groups = {},
+                 lr = 1e-3,
                  # Weight decay
-                 weight_decay = 0.0, weight_decay_groups = {},
+                 weight_decay = 0.0,
                  # Other hyperparameters
                  betas = (0.9, 0.999), factor = 0.8, patience = 5,
                  # Optimizer and scheduler selection
@@ -215,33 +215,19 @@ class LitModelWrapper(pl.LightningModule):
     
     def configure_optimizers(self):
         # Get learning rates
-        lr        = self.hparams['lr']
-        lr_groups = self.hparams['lr_groups']
+        lr = self.hparams['lr']
         # Get weight_decay parameters
-        weight_decay        = self.hparams['weight_decay']
-        weight_decay_groups = self.hparams['weight_decay_groups']
-
-        # Get parameter groups
-        parameter_groups = []
-        for name, params in self.model.parameters_grouped().items():
-            group = {'params': params}
-
-            if name in lr_groups:
-                group['lr'] = lr_groups[name]
-            if name in weight_decay_groups:
-                group['weight_decay'] = weight_decay_groups[name]
-
-            parameter_groups.append(group)
+        weight_decay = self.hparams['weight_decay']
 
         # Initialize optimizer
         if   self.optimizer == 'Adam':
-            optimizer = torch.optim.Adam(parameter_groups, lr=lr, weight_decay=weight_decay, betas=self.hparams['betas'])
+            optimizer = torch.optim.Adam(self.model.parameters(), lr=lr, weight_decay=weight_decay, betas=self.hparams['betas'])
         elif self.optimizer == 'AdamW':
-            optimizer = torch.optim.AdamW(parameter_groups, lr=lr, weight_decay=weight_decay, betas=self.hparams['betas'])
+            optimizer = torch.optim.AdamW(self.model.parameters(), lr=lr, weight_decay=weight_decay, betas=self.hparams['betas'])
         elif self.optimizer == 'SGD':
-            optimizer = torch.optim.SGD(parameter_groups, lr=lr, weight_decay=weight_decay)
+            optimizer = torch.optim.SGD(self.model.parameters(), lr=lr, weight_decay=weight_decay)
         elif self.optimizer == 'RMSprop':
-            optimizer = torch.optim.RMSprop(parameter_groups, lr=lr, weight_decay=weight_decay)
+            optimizer = torch.optim.RMSprop(self.model.parameters(), lr=lr, weight_decay=weight_decay)
         else:
             raise ValueError(f'Unknown optimizer: {self.optimizer}')
 
