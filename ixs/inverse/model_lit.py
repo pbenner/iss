@@ -16,6 +16,7 @@
 ## Imports
 ## ----------------------------------------------------------------------------
 
+import numpy as np
 import torch
 import pytorch_lightning as pl
 import sys
@@ -284,9 +285,9 @@ class LitModelWrapper(pl.LightningModule):
         X_batch = batch[0]
         y_batch = batch[1]
         loss, loss_components = self.model.__train_step__(X_batch, y_batch)
-        self.log(f'train_loss', loss, on_step=False, on_epoch=True, prog_bar=True, logger=False)
+        self.log(f'train_loss', np.log10(loss.item()), on_step=False, on_epoch=True, prog_bar=True, logger=False)
         for name, value in loss_components.items():
-            self.log(f'train_{name}', value, on_step=False, on_epoch=True, prog_bar=True, logger=False)
+            self.log(f'train_{name}', np.log10(value.item()), on_step=False, on_epoch=True, prog_bar=True, logger=False)
         return {'loss': loss}
 
     def validation_step(self, batch, batch_index):
@@ -294,7 +295,7 @@ class LitModelWrapper(pl.LightningModule):
         X_batch = batch[0]
         y_batch = batch[1]
         _, loss, _ = self.model.__test_step__(X_batch, y_batch)
-        self.log('val_loss', loss, on_step=False, on_epoch=True, prog_bar=True, logger=False)
+        self.log('val_loss', np.log10(loss.item()), on_step=False, on_epoch=True, prog_bar=True, logger=False)
         return {'val_loss': loss}
 
     def test_step(self, batch, batch_index):

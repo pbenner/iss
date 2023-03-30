@@ -155,9 +155,9 @@ class InvertibleSASModelCore(torch.nn.Module):
 
         if self.add_y_noise > 0:
             y += self.add_y_noise * self.noise_batch(y.shape[0], self.ndim_y, y.device)
-        if self.ndim_pad_x:
+        if self.ndim_pad_x > 0:
             x = torch.cat((x, self.add_pad_noise * self.noise_batch(x.shape[0], self.ndim_pad_x, x.device)), dim=1) 
-        if self.ndim_pad_zy:
+        if self.ndim_pad_zy > 0:
             y = torch.cat((self.add_pad_noise * self.noise_batch(y.shape[0], self.ndim_pad_zy, y.device), y), dim=1)
 
         y = torch.cat((self.noise_batch(y.shape[0], self.ndim_z, y.device), y), dim=1)
