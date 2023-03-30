@@ -170,14 +170,20 @@ class InvertibleSASModelCore(torch.nn.Module):
         if self.train_reconstruction:
             r.append(self.loss_reconstruction(y_hat.data, x))
 
-        return sum(r)
+        return y_hat, sum(r)
     
 
     def __train_step__(self, x, y):
 
-        loss = self.loss(x, y)
+        _, loss = self.loss(x, y)
 
         return loss
+
+    def __test_step__(self, x, y):
+
+        y_hat, loss = self.loss(x, y)
+
+        return y_hat, loss
 
 ## ----------------------------------------------------------------------------
 
@@ -215,7 +221,7 @@ class InvertibleSASModel():
         self.lit_trainer = pl.Trainer(
             enable_checkpointing = True,
             enable_progress_bar  = True,
-            logger               = False,
+            logger               = True,
             max_epochs           = self.lit_trainer_options['max_epochs'],
             accelerator          = self.lit_trainer_options['accelerator'],
             devices              = self.lit_trainer_options['devices'],
