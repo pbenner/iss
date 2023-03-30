@@ -21,6 +21,7 @@ import torch
 import pytorch_lightning as pl
 import sys
 
+from copy   import deepcopy
 from tqdm   import tqdm
 from typing import Optional
 
@@ -209,12 +210,16 @@ class LitModelWrapper(pl.LightningModule):
                  model,
                  # Standard arguments for the model
                  *args,
+                 # Trainer options
+                 patience = 100, max_epochs = 1000, accelerator = 'gpu', devices = [0], strategy = 'auto',
+                 # Data options
+                 val_size = 0.1, batch_size = 128, num_workers = 2,
                  # Learning rate
                  lr = 1e-3,
                  # Weight decay
                  weight_decay = 0.0,
                  # Other hyperparameters
-                 betas = (0.9, 0.95), factor = 0.8, patience = 5,
+                 betas = (0.9, 0.95), factor = 0.8,
                  # Optimizer and scheduler selection
                  scheduler = None, optimizer = 'Adam', optimizer_verbose = False, **kwargs):
         super().__init__()
@@ -226,7 +231,22 @@ class LitModelWrapper(pl.LightningModule):
         self.optimizer_verbose = optimizer_verbose
         self.scheduler         = scheduler
         self.model             = model(*args, **kwargs)
-    
+
+        self.lit_trainer         = None
+        self.lit_trainer_options = {
+            'patience'    : patience,
+            'max_epochs'  : max_epochs,
+            'accelerator' : accelerator,
+            'devices'     : devices,
+            'strategy'    : strategy,
+        }
+        self.lit_data_options    = {
+            'val_size'    : val_size,
+            'batch_size'  : batch_size,
+            'num_workers' : num_workers,
+        }
+
+
     def configure_optimizers(self):
         # Get learning rates
         lr = self.hparams['lr']
@@ -320,3 +340,88 @@ class LitModelWrapper(pl.LightningModule):
     def predict_step(self, batch, batch_index):
         """Prediction on a single batch"""
         return self.forward(batch[0])
+
+    def _setup_trainer_(self):
+        self.lit_matric_tracker      = LitMetricTracker()
+        self.lit_early_stopping      = pl.callbacks.EarlyStopping(monitor = 'val_loss', patience = self.lit_trainer_options['patience'])
+        self.lit_checkpoint_callback = pl.callbacks.ModelCheckpoint(save_top_k = 1, monitor = 'val_loss', mode = 'min')
+
+        self.lit_trainer = pl.Trainer(
+            enable_checkpointing = True,
+            logger               = False,
+            enable_progress_bar  = True,
+            max_epochs           = self.lit_trainer_options['max_epochs'],
+            accelerator          = self.lit_trainer_options['accelerator'],
+            devices              = self.lit_trainer_options['devices'],
+           strategy             = self.lit_trainer_options['strategy'],
+            callbacks            = [LitProgressBar(), self.lit_early_stopping, self.lit_checkpoint_callback, self.lit_matric_tracker])
+
+    def _train(self, data):
+
+        data = LitTensorDataset(data, **self.lit_data_options)
+
+        # We always need a new trainer for training the model
+        self._setup_trainer_()
+
+        # Train model on train data and use validation data for early stopping
+        self.lit_trainer.fit(self, data)
+
+        # Get best model
+        self.lit_model = self.load_from_checkpoint(self.lit_checkpoint_callback.best_model_path)
+
+        result = {
+            'best_val_error': self.lit_checkpoint_callback.best_model_score.item(),
+            'train_error'   : torch.stack(self.lit_matric_tracker.train_error).tolist(),
+            'val_error'     : torch.stack(self.lit_matric_tracker.val_error  ).tolist() }
+
+        return result
+
+    def _predict(self, data):
+
+        data = LitTensorDataset(data, **self.lit_data_options)
+
+        if self.lit_trainer is None:
+            self._setup_trainer_()
+
+        y_hat_batched = self.lit_trainer.predict(self, data)
+
+        return torch.cat(y_hat_batched, dim=0)
+
+    def _cross_validation(self, data, n_splits, shuffle = True, random_state = 42):
+
+        data = LitTensorDataset(data, n_splits = n_splits, shuffle = shuffle, random_state = random_state, **self.lit_data_options)
+
+        if data.n_splits < 2:
+            raise ValueError(f'k-fold cross-validation requires at least one train/test split by setting n_splits=2 or more, got n_splits={n_splits}')
+
+        y_hat = torch.tensor([], dtype = torch.float)
+        y     = torch.tensor([], dtype = torch.float)
+
+        initial_model = self.model
+
+        for fold in range(data.n_splits):
+
+            print(f'Training fold {fold+1}/{data.n_splits}...')
+            data.setup_fold(fold)
+
+            # Clone model
+            self.lit_model.model = deepcopy(initial_model)
+
+            # Train model
+            best_val_score = self._train(data)['best_val_error']
+
+            # Test model
+            self.lit_trainer.test(self.lit_model, data)
+            test_y, test_y_hat = self.lit_model.test_y, self.lit_model.test_y_hat
+
+            # Print score
+            print(f'Best validation score: {best_val_score}')
+
+            # Save predictions for model evaluation
+            y_hat = torch.cat((y_hat, test_y_hat))
+            y     = torch.cat((y    , test_y    ))
+
+        # Compute final test score
+        test_loss = self.lit_model.loss(y_hat, y).item()
+
+        return test_loss, y, y_hat
