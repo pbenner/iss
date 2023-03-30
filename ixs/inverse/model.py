@@ -27,7 +27,7 @@ from copy import deepcopy
 
 from .          import losses
 from .data      import ScatteringData
-from .model_lit import LitProgressBar, LitMetricTracker, LitTensorDataset, LitModelWrapper
+from .model_lit import LitProgressBar, LitNoProgressBar, LitMetricTracker, LitTensorDataset, LitModelWrapper
 
 ## ----------------------------------------------------------------------------
 
@@ -72,7 +72,7 @@ class InvertibleSASModelCore(torch.nn.Module):
         self.lambd_mmd_back       = 500
         self.lambd_reconstruct    = 1.0
         self.hidden_layer_sizes   = hidden_layer_sizes
-        self.train_reconstruction = False
+        self.train_reconstruction = train_reconstruction
 
         self.mmd_forw_kernels     = [(0.2, 1/2), (1.5, 1/2), (3.0, 1/2)]
         self.mmd_back_kernels     = [(0.2, 1/2), (0.2, 1/2), (0.2, 1/2)]
@@ -164,26 +164,39 @@ class InvertibleSASModelCore(torch.nn.Module):
 
         y_hat, _ = self.freia_model(x, jac = False)
 
-        r = list(self.loss_forward_mmd(y_hat, y))
-        r.append(self.loss_backward_mmd(x, y))
+        # Evaluate all three losses
+        loss_forward  = self.loss_forward_mmd(y_hat, y)
+        loss_backward = self.loss_backward_mmd(x, y)
+        loss_reconst  = 0
 
         if self.train_reconstruction:
-            r.append(self.loss_reconstruction(y_hat.data, x))
+            loss_reconst = self.loss_reconstruction(y_hat.data, x)
 
-        return y_hat, sum(r)
+        # Aggregate losses
+        loss_sum = sum(loss_forward) + loss_backward + loss_reconst
+        # Save loss components for logging
+        loss_components = {
+            'forw_fit': loss_forward[0],
+            'forw_mmd': loss_forward[1],
+            'back_fit': loss_backward
+        }
+        if self.train_reconstruction:
+            loss_components['reconst'] = loss_reconst
+
+        return y_hat, loss_sum, loss_components
     
 
     def __train_step__(self, x, y):
 
-        _, loss = self.loss(x, y)
+        _, loss, loss_components = self.loss(x, y)
 
-        return loss
+        return loss, loss_components
 
     def __test_step__(self, x, y):
 
-        y_hat, loss = self.loss(x, y)
+        y_hat, loss, loss_components = self.loss(x, y)
 
-        return y_hat, loss
+        return y_hat, loss, loss_components
 
 ## ----------------------------------------------------------------------------
 
@@ -220,8 +233,8 @@ class InvertibleSASModel():
 
         self.lit_trainer = pl.Trainer(
             enable_checkpointing = True,
-            enable_progress_bar  = True,
             logger               = False,
+            enable_progress_bar  = True,
             max_epochs           = self.lit_trainer_options['max_epochs'],
             accelerator          = self.lit_trainer_options['accelerator'],
             devices              = self.lit_trainer_options['devices'],

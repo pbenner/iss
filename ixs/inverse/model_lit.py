@@ -268,23 +268,27 @@ class LitModelWrapper(pl.LightningModule):
         """Train model on a single batch"""
         X_batch = batch[0]
         y_batch = batch[1]
-        loss    = self.model.__train_step__(X_batch, y_batch)
-        self.log('train_loss', loss, on_step=False, on_epoch=True, prog_bar=True, logger=False)
+        loss, loss_components = self.model.__train_step__(X_batch, y_batch)
+        self.log(f'train_loss', loss, on_step=False, on_epoch=True, prog_bar=True, logger=False)
+        for name, value in loss_components.items():
+            self.log(f'train_{name}', value, on_step=False, on_epoch=True, prog_bar=True, logger=False)
         return {'loss': loss}
 
     def validation_step(self, batch, batch_index):
         """Validate model on a single batch"""
         X_batch = batch[0]
         y_batch = batch[1]
-        _, loss = self.model.__test_step__(X_batch, y_batch)
+        _, loss, loss_components = self.model.__test_step__(X_batch, y_batch)
         self.log('val_loss', loss, on_step=False, on_epoch=True, prog_bar=True, logger=False)
+        for name, value in loss_components.items():
+            self.log(f'val_{name}', value, on_step=False, on_epoch=True, prog_bar=True, logger=False)
         return {'val_loss': loss}
 
     def test_step(self, batch, batch_index):
         """Test model on a single batch"""
         X_batch = batch[0]
         y_batch = batch[1]
-        y_hat, loss = self.model.__test_step__(X_batch, y_batch)
+        y_hat, _, _ = self.model.__test_step__(X_batch, y_batch)
         # Return predictions
         return {'y': y_batch[:,0].detach().cpu(), 'y_hat': y_hat[:,0].detach().cpu()}
 
