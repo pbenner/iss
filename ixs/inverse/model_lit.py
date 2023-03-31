@@ -289,7 +289,7 @@ class LitModelWrapper(pl.LightningModule):
         elif self.scheduler == 'plateau':
             scheduler = [{'scheduler': torch.optim.lr_scheduler.ReduceLROnPlateau(
                             optimizer,
-                            patience = self.hparams['patience_sc'],
+                            patience = self.hparams['patience_sd'],
                             factor   = self.hparams['factor'],
                             mode     = 'min',
                             verbose  = True),
