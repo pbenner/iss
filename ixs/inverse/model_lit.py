@@ -214,7 +214,7 @@ class LitModelWrapper(pl.LightningModule):
                  # pytorch model class
                  model,
                  # Trainer options
-                 patience = 100, max_epochs = 1000, accelerator = 'gpu', devices = [0], strategy = 'auto',
+                 patience_sd = 10, patience_es = 50, max_epochs = 1000, accelerator = 'gpu', devices = [0], strategy = 'auto',
                  # Data options
                  val_size = 0.1, batch_size = 128, num_workers = 2,
                  # Learning rate
@@ -237,7 +237,8 @@ class LitModelWrapper(pl.LightningModule):
 
         self.lit_trainer         = None
         self.lit_trainer_options = {
-            'patience'    : patience,
+            'patience_sd' : patience_sd,
+            'patience_es' : patience_es,
             'max_epochs'  : max_epochs,
             'accelerator' : accelerator,
             'devices'     : devices,
@@ -288,7 +289,7 @@ class LitModelWrapper(pl.LightningModule):
         elif self.scheduler == 'plateau':
             scheduler = [{'scheduler': torch.optim.lr_scheduler.ReduceLROnPlateau(
                             optimizer,
-                            patience = self.hparams['patience'],
+                            patience = self.hparams['patience_sc'],
                             factor   = self.hparams['factor'],
                             mode     = 'min',
                             verbose  = True),
@@ -346,7 +347,7 @@ class LitModelWrapper(pl.LightningModule):
 
     def _setup_trainer_(self):
         self.lit_matric_tracker      = LitMetricTracker()
-        self.lit_early_stopping      = pl.callbacks.EarlyStopping(monitor = 'val_loss', patience = self.lit_trainer_options['patience'])
+        self.lit_early_stopping      = pl.callbacks.EarlyStopping(monitor = 'val_loss', patience = self.lit_trainer_options['patience_es'])
         self.lit_checkpoint_callback = pl.callbacks.ModelCheckpoint(save_top_k = 1, monitor = 'val_loss', mode = 'min')
 
         self.lit_trainer = pl.Trainer(
@@ -356,7 +357,7 @@ class LitModelWrapper(pl.LightningModule):
             max_epochs           = self.lit_trainer_options['max_epochs'],
             accelerator          = self.lit_trainer_options['accelerator'],
             devices              = self.lit_trainer_options['devices'],
-           strategy             = self.lit_trainer_options['strategy'],
+            strategy             = self.lit_trainer_options['strategy'],
             callbacks            = [LitProgressBar(), self.lit_early_stopping, self.lit_checkpoint_callback, self.lit_matric_tracker])
 
     def _train(self, data):
