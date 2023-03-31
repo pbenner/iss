@@ -343,7 +343,9 @@ class LitModelWrapper(pl.LightningModule):
 
     def predict_step(self, batch, batch_index):
         """Prediction on a single batch"""
-        return self.forward(batch[0])
+        X_batch = batch[0]
+        y_batch = batch[1]
+        return self.forward(X_batch)
 
     def _setup_trainer_(self):
         self.lit_matric_tracker      = LitMetricTracker()
@@ -371,6 +373,7 @@ class LitModelWrapper(pl.LightningModule):
         self.lit_trainer.fit(self, data)
 
         # Get best model
+        #TODO:
         self.lit_model = self.load_from_checkpoint(self.lit_checkpoint_callback.best_model_path)
 
         result = {

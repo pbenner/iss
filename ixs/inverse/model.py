@@ -113,7 +113,9 @@ class InvertibleSASModelCore(torch.nn.Module):
         if self.ndim_pad_x:
             x = torch.cat((x, self.add_pad_noise * self.noise_batch(x.shape[0], self.ndim_pad_x, x.device)), dim=1)
 
-        return self.freia_model(x, **kwargs)
+        y, _ = self.freia_model(x, **kwargs)
+
+        return y
 
     def loss_backward_mmd(self, x, y):
         """
