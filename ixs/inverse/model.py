@@ -108,14 +108,34 @@ class InvertibleSASModelCore(torch.nn.Module):
         """
         return torch.randn(batch_size, ndim, device=device)
 
-    def forward(self, x, **kwargs):
+    def _predict_forward(self, x):
 
         if self.ndim_pad_x:
             x = torch.cat((x, self.add_pad_noise * self.noise_batch(x.shape[0], self.ndim_pad_x, x.device)), dim=1)
 
-        y, _ = self.freia_model(x, **kwargs)
+        y, _ = self.freia_model(x, rev = False, jac = False)
 
         return y
+
+    def _predict_backward(self, y):
+
+        if self.add_y_noise > 0:
+            y += self.add_y_noise * self.noise_batch(y.shape[0], self.ndim_y, y.device)
+        if self.ndim_pad_zy > 0:
+            y = torch.cat((self.add_pad_noise * self.noise_batch(y.shape[0], self.ndim_pad_zy, y.device), y), dim=1)
+
+        yz = torch.cat((self.noise_batch(y.shape[0], self.ndim_z, y.device), y), dim=1)
+
+        x, _ = self.freia_model(yz, rev = True, jac = False)
+
+        return x
+
+    def forward(self, x_or_y, rev = False):
+
+        if rev:
+            return self._predict_backward(x_or_y)
+        else:
+            return self._predict_forward (x_or_y)
 
     def loss_backward_mmd(self, x, y):
         """
@@ -160,10 +180,10 @@ class InvertibleSASModelCore(torch.nn.Module):
 
     def loss(self, x, y):
 
-        if self.add_y_noise > 0:
-            y += self.add_y_noise * self.noise_batch(y.shape[0], self.ndim_y, y.device)
         if self.ndim_pad_x > 0:
             x = torch.cat((x, self.add_pad_noise * self.noise_batch(x.shape[0], self.ndim_pad_x, x.device)), dim=1) 
+        if self.add_y_noise > 0:
+            y += self.add_y_noise * self.noise_batch(y.shape[0], self.ndim_y, y.device)
         if self.ndim_pad_zy > 0:
             y = torch.cat((self.add_pad_noise * self.noise_batch(y.shape[0], self.ndim_pad_zy, y.device), y), dim=1)
 
@@ -191,19 +211,6 @@ class InvertibleSASModelCore(torch.nn.Module):
             loss_components['reconst'] = loss_reconst
 
         return y_hat, loss_sum, loss_components
-    
-
-    def __train_step__(self, x, y):
-
-        _, loss, loss_components = self.loss(x, y)
-
-        return loss, loss_components
-
-    def __test_step__(self, x, y):
-
-        y_hat, loss, loss_components = self.loss(x, y)
-
-        return y_hat, loss, loss_components
 
 ## ----------------------------------------------------------------------------
 
@@ -230,9 +237,13 @@ class InvertibleSASModel():
 
         return self.lit_model._train(data)
 
-    def predict(self, data : ScatteringData):
+    def predict_forward(self, x : torch.Tensor):
 
-        return self.lit_model._predict(data)
+        return self.lit_model.model(x, rev = False)
+
+    def predict_backward(self, y : torch.Tensor):
+
+        return self.lit_model.model(y, rev = True)
 
     @classmethod
     def load(cls, filename : str) -> 'InvertibleSASModel':

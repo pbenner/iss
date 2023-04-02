@@ -185,10 +185,6 @@ class LitTensorDataset(pl.LightningDataModule):
             else:
                 self.data_test = self.data
 
-        # Assign predict dataset for use in dataloader(s)
-        if stage == 'predict' or stage == None:
-            self.data_predict = self.data
-
     # Custom method to create a data loader
     def get_dataloader(self, data):
         return torch.utils.data.DataLoader(data, batch_size=self.batch_size, num_workers=self.num_workers)
@@ -205,7 +201,7 @@ class LitTensorDataset(pl.LightningDataModule):
         return self.get_dataloader(self.data_test)
 
     def predict_dataloader(self):
-        return self.get_dataloader(self.data_predict)
+        raise NotImplementedError
 
 ## ----------------------------------------------------------------------------
 
@@ -249,7 +245,6 @@ class LitModelWrapper(pl.LightningModule):
             'batch_size'  : batch_size,
             'num_workers' : num_workers,
         }
-
 
     def configure_optimizers(self):
         # Get learning rates
@@ -301,14 +296,14 @@ class LitModelWrapper(pl.LightningModule):
 
         return [optimizer], scheduler
 
-    def forward(self, x):
-        return self.model.forward(x)
+    def forward(self, x, **kwargs):
+        return self.model.forward(x, **kwargs)
 
     def training_step(self, batch, batch_index):
         """Train model on a single batch"""
         X_batch = batch[0]
         y_batch = batch[1]
-        loss, loss_components = self.model.__train_step__(X_batch, y_batch)
+        _, loss, loss_components = self.model.loss(X_batch, y_batch)
         self.log(f'train_loss', np.log10(loss.item()), on_step=False, on_epoch=True, prog_bar=True, logger=False)
         for name, value in loss_components.items():
             self.log(f'train_{name}', np.log10(value.item()), on_step=False, on_epoch=True, prog_bar=True, logger=False)
@@ -318,7 +313,7 @@ class LitModelWrapper(pl.LightningModule):
         """Validate model on a single batch"""
         X_batch = batch[0]
         y_batch = batch[1]
-        _, loss, _ = self.model.__test_step__(X_batch, y_batch)
+        _, loss, _ = self.model.loss(X_batch, y_batch)
         self.log('val_loss', np.log10(loss.item()), on_step=False, on_epoch=True, prog_bar=True, logger=False)
         return {'val_loss': loss}
 
@@ -326,7 +321,7 @@ class LitModelWrapper(pl.LightningModule):
         """Test model on a single batch"""
         X_batch = batch[0]
         y_batch = batch[1]
-        y_hat, _, _ = self.model.__test_step__(X_batch, y_batch)
+        y_hat, _, _ = self.model.loss(X_batch, y_batch)
         # Return predictions
         return {'y': y_batch[:,0].detach().cpu(), 'y_hat': y_hat[:,0].detach().cpu()}
 
@@ -343,9 +338,7 @@ class LitModelWrapper(pl.LightningModule):
 
     def predict_step(self, batch, batch_index):
         """Prediction on a single batch"""
-        X_batch = batch[0]
-        y_batch = batch[1]
-        return self.forward(X_batch)
+        raise NotImplementedError
 
     def _setup_trainer_(self):
         self.lit_matric_tracker      = LitMetricTracker()
@@ -382,17 +375,6 @@ class LitModelWrapper(pl.LightningModule):
             'val_error'     : torch.stack(self.lit_matric_tracker.val_error  ).tolist() }
 
         return result
-
-    def _predict(self, data):
-
-        data = LitTensorDataset(data, **self.lit_data_options)
-
-        if self.lit_trainer is None:
-            self._setup_trainer_()
-
-        y_hat_batched = self.lit_trainer.predict(self, data)
-
-        return torch.cat(y_hat_batched, dim=0)
 
     def _cross_validation(self, data, n_splits, shuffle = True, random_state = 42):
 
