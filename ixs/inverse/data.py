@@ -31,20 +31,18 @@ from sklearn.preprocessing import StandardScaler
 
 class ScatteringData(torch.utils.data.TensorDataset):
 
-    def __init__(self, path, shapes, input_keys, ndim_pad_x, ndim_y, ndim_z, ndim_pad_zy, target = 'I'):
+    def __init__(self, inputs, outputs, shapes_dict, ndim_pad_x, ndim_y, ndim_z, ndim_pad_zy):
     
         self.ndim_pad_x  = ndim_pad_x
         self.ndim_y      = ndim_y
         self.ndim_z      = ndim_z
         self.ndim_pad_zy = ndim_pad_zy 
-
-        inputs, labels, shapes_dict = self.read_data(path, shapes, input_keys, target)
-
         self.shapes_dict = shapes_dict
 
-        super().__init__(inputs, labels)
+        super().__init__(inputs, outputs)
 
-    def read_data(self, path, shapes, input_keys, target):
+    @classmethod
+    def read_data(self, path, shapes, input_keys, ndim_pad_x, ndim_y, ndim_z, ndim_pad_zy, target = 'I'):
         """
         Load the trainig data from HDF files:
         Arguments:
@@ -56,15 +54,14 @@ class ScatteringData(torch.utils.data.TensorDataset):
         if not(input_keys[0] == 'shape' and input_keys[1] == 'radius'):
             raise ValueError('The first two parameters of input keys should be named "shape" and "radius"')
 
-        self.input_features = input_keys.copy()
         files = [ f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f)) ]
-        self.ndim_x = shapes*2 + len(input_keys)-2
+        ndim_x = shapes*2 + len(input_keys)-2
 
         # Check dimensions
-        assert self.ndim_x + self.ndim_pad_x == self.ndim_y + self.ndim_z + self.ndim_pad_zy, "Dimensions don't match up"
+        assert ndim_x + ndim_pad_x == ndim_y + ndim_z + ndim_pad_zy, "Dimensions don't match up"
 
-        labels = torch.zeros(len(files), self.ndim_y, dtype = torch.float32)
-        inputs = torch.zeros(len(files), self.ndim_x, dtype = torch.float32)
+        outputs = torch.zeros(len(files), ndim_y, dtype = torch.float32)
+        inputs  = torch.zeros(len(files), ndim_x, dtype = torch.float32)
         shapes_dict = {}
 
         for i, f in enumerate(files):
@@ -72,10 +69,10 @@ class ScatteringData(torch.utils.data.TensorDataset):
 
                 print(f'Reading: {file}', end = '\r')
 
-                assert self.ndim_y ==  torch.from_numpy(file['entry/I'][()].flatten()).shape[0], "scattering curve has different size"
+                assert ndim_y ==  torch.from_numpy(file['entry/I'][()].flatten()).shape[0], "scattering curve has different size"
 
                 # Read I or I_noisy here, specified by target variable
-                labels[i,:] = torch.from_numpy(file[f'entry/{target}'][()].flatten())
+                outputs[i,:] = torch.from_numpy(file[f'entry/{target}'][()].flatten())
                 for i_k, key in enumerate(input_keys):
                     try:
                         if key == 'shape':
@@ -95,22 +92,39 @@ class ScatteringData(torch.utils.data.TensorDataset):
                         # e.g spheres don't have all of the properties a cylinder does
                         pass
 
-        return inputs, labels, shapes_dict
+        return ScatteringData(inputs, outputs, shapes_dict, ndim_pad_x, ndim_y, ndim_z, ndim_pad_zy)
+
+    def __getitem__(self, index):
+        inputs, outputs = super().__getitem__(index)
+        return ScatteringData(inputs, outputs, self.shapes_dict, self.ndim_pad_x, self.ndim_y, self.ndim_z, self.ndim_pad_zy)
+
+    def fit_scaler(self, scaler):
+
+        n_shapes = len(self.shapes_dict.keys())
+
+        # Split data matrix into left and right part
+        x_right = self.X[:, n_shapes:]
+
+        # Fit and apply scaler
+        scaler.fit(x_right)
 
     def normalize(self, scaler):
 
         n_shapes = len(self.shapes_dict.keys())
 
-        # Get input data
-        x = self.tensors[0]
         # Split data matrix into left and right part
-        x_left  = x[:,:n_shapes ]
-        x_right = x[:, n_shapes:]
-
-        # Fit and apply scaler
-        scaler.fit(x[:, n_shapes:])
+        x_left  = self.X[:,:n_shapes ]
+        x_right = self.X[:, n_shapes:]
 
         x_tmp = torch.from_numpy(scaler.transform(x_right))
         x_tmp = torch.concatenate((x_left, x_tmp), axis=1).type(torch.float32)
 
         self.tensors[0].set_(x_tmp)
+
+    @property
+    def X(self):
+        return self.tensors[0]
+
+    @property
+    def y(self):
+        return self.tensors[1]

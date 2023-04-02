@@ -233,6 +233,7 @@ class InvertibleSASModel():
 
     def train(self, data : ScatteringData):
 
+        data.fit_scaler(self.scaler)
         data.normalize(self.scaler)
 
         return self.lit_model._train(data)
