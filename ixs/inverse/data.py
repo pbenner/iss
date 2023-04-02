@@ -30,8 +30,9 @@ import os
 
 class ScatteringData(torch.utils.data.TensorDataset):
 
-    def __init__(self, inputs, outputs, shapes_dict, ndim_pad_x, ndim_y, ndim_z, ndim_pad_zy):
+    def __init__(self, inputs, outputs, shapes_dict, ndim_x, ndim_pad_x, ndim_y, ndim_z, ndim_pad_zy):
     
+        self.ndim_x      = ndim_x
         self.ndim_pad_x  = ndim_pad_x
         self.ndim_y      = ndim_y
         self.ndim_z      = ndim_z
@@ -41,7 +42,7 @@ class ScatteringData(torch.utils.data.TensorDataset):
         super().__init__(inputs, outputs)
 
     def __new_data__(self, inputs, outputs):
-        return ScatteringData(inputs, outputs, self.shapes_dict, self.ndim_pad_x, self.ndim_y, self.ndim_z, self.ndim_pad_zy)
+        return ScatteringData(inputs, outputs, self.shapes_dict, self.ndim_x, self.ndim_pad_x, self.ndim_y, self.ndim_z, self.ndim_pad_zy)
 
     @classmethod
     def read_data(self, path, shapes, input_keys, ndim_pad_x, ndim_y, ndim_z, ndim_pad_zy, target = 'I'):
@@ -94,7 +95,7 @@ class ScatteringData(torch.utils.data.TensorDataset):
                         # e.g spheres don't have all of the properties a cylinder does
                         pass
 
-        return ScatteringData(inputs, outputs, shapes_dict, ndim_pad_x, ndim_y, ndim_z, ndim_pad_zy)
+        return ScatteringData(inputs, outputs, shapes_dict, ndim_x, ndim_pad_x, ndim_y, ndim_z, ndim_pad_zy)
 
     def __getitem__(self, index):
 
@@ -102,7 +103,7 @@ class ScatteringData(torch.utils.data.TensorDataset):
 
         return self.__new_data__(inputs, outputs)
 
-    def fit_scaler(self, scaler):
+    def fit_scaler_inputs(self, scaler):
 
         n_shapes = len(self.shapes_dict.keys())
 
@@ -111,6 +112,10 @@ class ScatteringData(torch.utils.data.TensorDataset):
 
         # Fit and apply scaler
         scaler.fit(x_right)
+
+    def fit_scaler_outputs(self, scaler):
+
+        pass
 
     def normalize_inputs(self, scaler, X = None):
 
