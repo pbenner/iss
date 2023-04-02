@@ -242,15 +242,21 @@ class InvertibleSASModel():
 
     def predict_forward(self, data : ScatteringData):
 
-        data = data.normalize_inputs(self.scaler_inputs)
+        X = data.normalize_inputs(self.scaler_inputs).X
 
-        return self.lit_model.model(data.X, rev = False)
+        y = self.lit_model.model(X, rev = False)
+        y = data.denormalize_outputs(self.scaler_outputs, y = y).y
+
+        return y
 
     def predict_backward(self, data : ScatteringData):
 
-        data = data.normalize_outputs(self.scaler_outputs)
+        y = data.normalize_outputs(self.scaler_outputs).y
 
-        return self.lit_model.model(data.y, rev = True)
+        X = self.lit_model.model(y, rev = True)
+        X = data.denormalize_inputs(self.scaler_inputs, X = X)
+
+        return X
 
     @classmethod
     def load(cls, filename : str) -> 'InvertibleSASModel':
