@@ -222,7 +222,8 @@ class InvertibleSASModel():
             **kwargs):
 
         self.lit_model = LitModelWrapper(InvertibleSASModelCore, *args, **kwargs)
-        self.scaler    = StandardScaler()
+        self.scaler_inputs  = StandardScaler()
+        self.scaler_outputs = None
 
     def cross_validation(self, data : ScatteringData, n_splits, shuffle = True, random_state = 42):
 
@@ -234,17 +235,22 @@ class InvertibleSASModel():
     def train(self, data : ScatteringData):
 
         data.fit_scaler(self.scaler)
-        data.normalize(self.scaler)
+        data = data.normalize_inputs (self.scaler_inputs)
+        data = data.normalize_outputs(self.scaler_outputs)
 
         return self.lit_model._train(data)
 
-    def predict_forward(self, x : torch.Tensor):
+    def predict_forward(self, data : ScatteringData):
 
-        return self.lit_model.model(x, rev = False)
+        data = data.normalize_inputs(self.scaler_inputs)
 
-    def predict_backward(self, y : torch.Tensor):
+        return self.lit_model.model(data.X, rev = False)
 
-        return self.lit_model.model(y, rev = True)
+    def predict_backward(self, data : ScatteringData):
+
+        data = data.normalize_outputs(self.scaler_outputs)
+
+        return self.lit_model.model(data.y, rev = True)
 
     @classmethod
     def load(cls, filename : str) -> 'InvertibleSASModel':

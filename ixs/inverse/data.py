@@ -41,6 +41,9 @@ class ScatteringData(torch.utils.data.TensorDataset):
 
         super().__init__(inputs, outputs)
 
+    def __new_data__(self, inputs, outputs):
+        return ScatteringData(inputs, outputs, self.shapes_dict, self.ndim_pad_x, self.ndim_y, self.ndim_z, self.ndim_pad_zy)
+
     @classmethod
     def read_data(self, path, shapes, input_keys, ndim_pad_x, ndim_y, ndim_z, ndim_pad_zy, target = 'I'):
         """
@@ -95,8 +98,10 @@ class ScatteringData(torch.utils.data.TensorDataset):
         return ScatteringData(inputs, outputs, shapes_dict, ndim_pad_x, ndim_y, ndim_z, ndim_pad_zy)
 
     def __getitem__(self, index):
+
         inputs, outputs = super().__getitem__(index)
-        return ScatteringData(inputs, outputs, self.shapes_dict, self.ndim_pad_x, self.ndim_y, self.ndim_z, self.ndim_pad_zy)
+
+        return self.__new_data__(inputs, outputs)
 
     def fit_scaler(self, scaler):
 
@@ -108,7 +113,7 @@ class ScatteringData(torch.utils.data.TensorDataset):
         # Fit and apply scaler
         scaler.fit(x_right)
 
-    def normalize(self, scaler):
+    def normalize_inputs(self, scaler):
 
         n_shapes = len(self.shapes_dict.keys())
 
@@ -119,7 +124,10 @@ class ScatteringData(torch.utils.data.TensorDataset):
         x_tmp = torch.from_numpy(scaler.transform(x_right))
         x_tmp = torch.concatenate((x_left, x_tmp), axis=1).type(torch.float32)
 
-        self.tensors[0].set_(x_tmp)
+        return self.__new_data__(x_tmp, self.y)
+
+    def normalize_outputs(self, scaler):
+        return self
 
     @property
     def X(self):
