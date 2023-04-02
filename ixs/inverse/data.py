@@ -21,11 +21,10 @@
 ## Imports
 ## ----------------------------------------------------------------------------
 
+import dill
 import torch
 import h5py
 import os
-
-from sklearn.preprocessing import StandardScaler
 
 ## ----------------------------------------------------------------------------
 
@@ -136,3 +135,19 @@ class ScatteringData(torch.utils.data.TensorDataset):
     @property
     def y(self):
         return self.tensors[1]
+
+    @classmethod
+    def load(cls, filename : str) -> 'ScatteringData':
+
+        with open(filename, 'rb') as f:
+            data = dill.load(f)
+
+        if not isinstance(data, cls):
+            raise ValueError(f'file {filename} contains incorrect model class {type(data)}')
+
+        return data
+
+    def save(self, filename : str) -> None:
+
+        with open(filename, 'wb') as f:
+            dill.dump(self, f)
