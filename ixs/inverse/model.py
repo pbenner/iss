@@ -192,6 +192,12 @@ class InvertibleSASModelCore(torch.nn.Module):
 
     def loss(self, x, y):
 
+        assert len(x.shape) == 2, 'Input data has invalid dimension'
+        assert x.shape[1] == self.ndim_x, 'Input data has invalid dimension'
+
+        assert len(y.shape) == 2, 'Input data has invalid dimension'
+        assert y.shape[1] == self.ndim_y, 'Input data has invalid dimension'
+
         if self.ndim_pad_x > 0:
             x = torch.cat((x, self.add_pad_noise * self.noise_batch(x.shape[0], self.ndim_pad_x, x.device)), dim=1) 
         if self.add_y_noise > 0:
