@@ -110,14 +110,23 @@ class InvertibleSASModelCore(torch.nn.Module):
 
     def _predict_forward(self, x):
 
+        assert len(x.shape) == 2, 'Input data has invalid dimension'
+        assert x.shape[1] == self.ndim_x, 'Input data has invalid dimension'
+
         if self.ndim_pad_x:
             x = torch.cat((x, self.add_pad_noise * self.noise_batch(x.shape[0], self.ndim_pad_x, x.device)), dim=1)
 
         y, _ = self.freia_model(x, rev = False, jac = False)
 
+        # Truncate padded part
+        y = y[:, 0:self.ndim_y]
+
         return y
 
     def _predict_backward(self, y):
+
+        assert len(y.shape) == 2, 'Input data has invalid dimension'
+        assert y.shape[1] == self.ndim_y, 'Input data has invalid dimension'
 
         if self.add_y_noise > 0:
             y += self.add_y_noise * self.noise_batch(y.shape[0], self.ndim_y, y.device)
@@ -127,6 +136,9 @@ class InvertibleSASModelCore(torch.nn.Module):
         yz = torch.cat((self.noise_batch(y.shape[0], self.ndim_z, y.device), y), dim=1)
 
         x, _ = self.freia_model(yz, rev = True, jac = False)
+
+        # Truncate padded part
+        x = x[:, 0:self.ndim_x]
 
         return x
 
@@ -261,7 +273,7 @@ class InvertibleSASModel():
         with torch.no_grad():
             X = self.lit_model.model(y, rev = True)
 
-        X = data.denormalize_inputs(self.scaler_inputs, X = X)
+        X = data.denormalize_inputs(self.scaler_inputs, X = X).X
 
         return X
 
