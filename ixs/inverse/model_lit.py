@@ -366,15 +366,14 @@ class LitModelWrapper(pl.LightningModule):
         self.lit_trainer.fit(self, data)
 
         # Get best model
-        #TODO:
-        self.lit_model = self.load_from_checkpoint(self.lit_checkpoint_callback.best_model_path)
+        best_model = self.load_from_checkpoint(self.lit_checkpoint_callback.best_model_path)
 
-        result = {
+        stats = {
             'best_val_error': self.lit_checkpoint_callback.best_model_score.item(),
             'train_error'   : torch.stack(self.lit_matric_tracker.train_error).tolist(),
             'val_error'     : torch.stack(self.lit_matric_tracker.val_error  ).tolist() }
 
-        return result
+        return best_model, stats
 
     def _cross_validation(self, data, n_splits, shuffle = True, random_state = 42):
 
