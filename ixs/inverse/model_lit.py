@@ -145,7 +145,7 @@ class LitVerboseOptimizer(torch.optim.Optimizer):
 ## ----------------------------------------------------------------------------
 
 class LitTensorDataset(pl.LightningDataModule):
-    def __init__(self, data : torch.utils.data.TensorDataset, n_splits = 1, val_size = 0.2, batch_size = 32, num_workers = 2, shuffle = True, random_state = 42):
+    def __init__(self, data : torch.utils.data.Dataset, n_splits = 1, val_size = 0.2, batch_size = 32, num_workers = 2, shuffle = True, random_state = 42):
         super().__init__()
         self.num_workers  = num_workers
         self.val_size     = val_size
