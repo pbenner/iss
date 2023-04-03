@@ -247,7 +247,9 @@ class InvertibleSASModel():
 
         X = data.normalize_inputs(self.scaler_inputs).X
 
-        y = self.lit_model.model(X, rev = False)
+        with torch.no_grad():
+            y = self.lit_model.model(X, rev = False)
+
         y = data.denormalize_outputs(self.scaler_outputs, y = y).y
 
         return y
@@ -256,7 +258,9 @@ class InvertibleSASModel():
 
         y = data.normalize_outputs(self.scaler_outputs).y
 
-        X = self.lit_model.model(y, rev = True)
+        with torch.no_grad():
+            X = self.lit_model.model(y, rev = True)
+
         X = data.denormalize_inputs(self.scaler_inputs, X = X)
 
         return X
