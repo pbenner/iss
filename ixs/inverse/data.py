@@ -26,6 +26,8 @@ import torch
 import h5py
 import os
 
+from sklearn.model_selection import train_test_split
+
 ## ----------------------------------------------------------------------------
 
 class ScatteringData(torch.utils.data.TensorDataset):
@@ -102,6 +104,12 @@ class ScatteringData(torch.utils.data.TensorDataset):
         inputs, outputs = self[index]
 
         return self.__new_data__(inputs, outputs)
+
+    def train_test_split(self, test_size = 0.1, shuffle = True, random_state = 42):
+
+        idx_train, idx_test = train_test_split(range(len(self)), test_size = test_size, shuffle = shuffle, random_state = random_state)
+
+        return self.subset(idx_train), self.subset(idx_test)
 
     def fit_scaler_inputs(self, scaler):
 
