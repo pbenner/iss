@@ -97,9 +97,9 @@ class ScatteringData(torch.utils.data.TensorDataset):
 
         return ScatteringData(inputs, outputs, shapes_dict, ndim_x, ndim_pad_x, ndim_y, ndim_z, ndim_pad_zy)
 
-    def __getitem__(self, index):
+    def subset(self, index):
 
-        inputs, outputs = super().__getitem__(index)
+        inputs, outputs = self[index]
 
         return self.__new_data__(inputs, outputs)
 

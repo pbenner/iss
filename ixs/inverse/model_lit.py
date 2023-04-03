@@ -169,7 +169,7 @@ class LitTensorDataset(pl.LightningDataModule):
         if stage == 'fit' or stage == None:
             # Check if we are using cross-validation
             if self.n_splits > 1:
-                train_index, _ = self.splits[self.k]
+                train_index, _  = self.splits[self.k]
                 self.data_train = torch.utils.data.Subset(self.data, train_index)
             else:
                 self.data_train = self.data
