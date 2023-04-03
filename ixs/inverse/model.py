@@ -216,12 +216,9 @@ class InvertibleSASModelCore(torch.nn.Module):
 
 class InvertibleSASModel():
 
-    def __init__(self,
-            *args,
-            # Model options
-            **kwargs):
+    def __init__(self, **kwargs):
 
-        self.lit_model = LitModelWrapper(InvertibleSASModelCore, *args, **kwargs)
+        self.lit_model = LitModelWrapper(InvertibleSASModelCore, **kwargs)
         self.scaler_inputs  = StandardScaler()
         self.scaler_outputs = None
 
