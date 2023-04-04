@@ -261,6 +261,13 @@ class InvertibleSASModel():
 
         return stats
 
+    def test(self, data : ScatteringData):
+
+        data = data.normalize_inputs (self.scaler_inputs)
+        data = data.normalize_outputs(self.scaler_outputs)
+
+        return self.lit_model._test(data)
+
     def predict_forward(self, data : ScatteringData):
 
         X = data.normalize_inputs(self.scaler_inputs).X

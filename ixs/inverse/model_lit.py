@@ -40,25 +40,37 @@ logging.getLogger('pytorch_lightning').setLevel(logging.ERROR)
 ## ----------------------------------------------------------------------------
 
 class LitMetricTracker(pl.callbacks.Callback):
-  def __init__(self):
-    self.val_error_batch   = []
-    self.val_error         = []
-    self.train_error_batch = []
-    self.train_error       = []
+    def __init__(self):
+        self.val_error_batch   = []
+        self.val_error         = []
+        self.train_error_batch = []
+        self.train_error       = []
+        self.test_y            = []
+        self.test_y_hat        = []
 
-  def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx):
-    self.train_error_batch.append(outputs['loss'].item())
+    def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx):
+        self.train_error_batch.append(outputs['loss'].item())
 
-  def on_train_epoch_end(self, *args, **kwargs):
-    self.train_error.append(torch.mean(torch.tensor(self.train_error_batch)))
-    self.train_error_batch = []
+    def on_train_epoch_end(self, *args, **kwargs):
+        self.train_error.append(torch.mean(torch.tensor(self.train_error_batch)))
+        self.train_error_batch = []
 
-  def on_validation_batch_end(self, trainer, pl_module, outputs, batch, batch_idx):
-    self.val_error_batch.append(outputs['val_loss'].item())
+    def on_validation_batch_end(self, trainer, pl_module, outputs, batch, batch_idx):
+        self.val_error_batch.append(outputs['val_loss'].item())
 
-  def on_validation_epoch_end(self, trainer, pl_module):
-    self.val_error.append(torch.mean(torch.tensor(self.val_error_batch)))
-    self.val_error_batch = []
+    def on_validation_epoch_end(self, trainer, pl_module):
+        self.val_error.append(torch.mean(torch.tensor(self.val_error_batch)))
+        self.val_error_batch = []
+
+    def on_test_batch_end(self, trainer, pl_module, outputs, batch, batch_idx):
+        self.test_y    .append(outputs['y'    ].detach().cpu())
+        self.test_y_hat.append(outputs['y_hat'].detach().cpu())
+
+    @property
+    def test_predictions(self):
+        y     = torch.cat(self.test_y)
+        y_hat = torch.cat(self.test_y_hat)
+        return y, y_hat
 
 ## ----------------------------------------------------------------------------
 
@@ -320,20 +332,11 @@ class LitModelWrapper(pl.LightningModule):
         """Test model on a single batch"""
         X_batch = batch[0]
         y_batch = batch[1]
-        y_hat, _, _ = self.model.loss(X_batch, y_batch)
-        # Return predictions
-        return {'y': y_batch[:,0].detach().cpu(), 'y_hat': y_hat[:,0].detach().cpu()}
-
-    def test_epoch_end(self, test_step_outputs):
-        # Collect predictions from individual batches
-        y     = torch.tensor([])
-        y_hat = torch.tensor([])
-        for output in test_step_outputs:
-            y     = torch.cat((y    , output['y']))
-            y_hat = torch.cat((y_hat, output['y_hat']))
-        # Save predictions for evaluation
-        self.test_y     = y
-        self.test_y_hat = y_hat
+        y_hat, loss, _ = self.model.loss(X_batch, y_batch)
+        # Log whatever we want to aggregate later
+        self.log('test_loss', loss)
+        # Return whatever we might need in callbacks
+        return {'y': y_batch, 'y_hat': y_hat, 'test_loss': loss}
 
     def predict_step(self, batch, batch_index):
         """Prediction on a single batch"""
@@ -375,6 +378,24 @@ class LitModelWrapper(pl.LightningModule):
 
         return best_model, stats
 
+    def _test(self, data):
+
+        data = LitTensorDataset(data, **self.data_options)
+
+        # We always need a new trainer for testing the model
+        self._setup_trainer_()
+
+        # Train model on train data and use validation data for early stopping
+        stats = self.trainer.test(self, data)
+
+        # There should only be one entry in stats
+        assert len(stats) == 1
+
+        # Get targets and predictions
+        y, y_hat = self.trainer_matric_tracker.test_predictions
+
+        return y, y_hat, stats[0]
+
     def _cross_validation(self, data, n_splits, shuffle = True, random_state = 42):
 
         data = LitTensorDataset(data, n_splits = n_splits, shuffle = shuffle, random_state = random_state, **self.lit_data_options)
@@ -400,7 +421,7 @@ class LitModelWrapper(pl.LightningModule):
 
             # Test model
             self.trainer.test(self, data)
-            test_y, test_y_hat = self.test_y, self.test_y_hat
+            test_y, test_y_hat = self.trainer_matric_tracker.test_predictions
 
             # Print score
             print(f'Best validation score: {best_val_score}')
