@@ -360,7 +360,8 @@ class LitModelWrapper(pl.LightningModule):
 
     def _train(self, data):
 
-        data = LitTensorDataset(data, **self.data_options)
+        if not isinstance(data, LitTensorDataset):
+            data = LitTensorDataset(data, **self.data_options)
 
         # We always need a new trainer for training the model
         self._setup_trainer_()
@@ -380,7 +381,8 @@ class LitModelWrapper(pl.LightningModule):
 
     def _test(self, data):
 
-        data = LitTensorDataset(data, **self.data_options)
+        if not isinstance(data, LitTensorDataset):
+            data = LitTensorDataset(data, **self.data_options)
 
         # We always need a new trainer for testing the model
         self._setup_trainer_()
@@ -420,8 +422,7 @@ class LitModelWrapper(pl.LightningModule):
             best_val_score = self._train(data)['best_val_error']
 
             # Test model
-            self.trainer.test(self, data)
-            test_y, test_y_hat = self.trainer_matric_tracker.test_predictions
+            test_y, test_y_hat, _ = self._test(self, data)
 
             # Print score
             print(f'Best validation score: {best_val_score}')
@@ -430,7 +431,8 @@ class LitModelWrapper(pl.LightningModule):
             y_hat = torch.cat((y_hat, test_y_hat))
             y     = torch.cat((y    , test_y    ))
 
-        # Compute final test score
-        test_loss = self.model.loss(y_hat, y).item()
+        # Compute final test score (TODO)
+        raise NotImplementedError
+        test_loss = self.loss(y_hat, y).item()
 
         return test_loss, y, y_hat
