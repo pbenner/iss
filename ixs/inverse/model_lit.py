@@ -231,8 +231,7 @@ class LitModelWrapper(pl.LightningModule):
         self.scheduler         = scheduler
         self.model             = model(**kwargs)
 
-        self.lit_trainer         = None
-        self.lit_trainer_options = {
+        self.trainer_options = {
             'patience_sd' : patience_sd,
             'patience_es' : patience_es,
             'max_epochs'  : max_epochs,
@@ -240,7 +239,7 @@ class LitModelWrapper(pl.LightningModule):
             'devices'     : devices,
             'strategy'    : strategy,
         }
-        self.lit_data_options    = {
+        self.data_options    = {
             'val_size'    : val_size,
             'batch_size'  : batch_size,
             'num_workers' : num_workers,
@@ -341,37 +340,38 @@ class LitModelWrapper(pl.LightningModule):
         raise NotImplementedError
 
     def _setup_trainer_(self):
-        self.lit_matric_tracker      = LitMetricTracker()
-        self.lit_early_stopping      = pl.callbacks.EarlyStopping(monitor = 'val_loss', patience = self.lit_trainer_options['patience_es'])
-        self.lit_checkpoint_callback = pl.callbacks.ModelCheckpoint(save_top_k = 1, monitor = 'val_loss', mode = 'min')
+        self.trainer_matric_tracker      = LitMetricTracker()
+        self.trainer_early_stopping      = pl.callbacks.EarlyStopping(monitor = 'val_loss', patience = self.trainer_options['patience_es'])
+        self.trainer_checkpoint_callback = pl.callbacks.ModelCheckpoint(save_top_k = 1, monitor = 'val_loss', mode = 'min')
 
-        self.lit_trainer = pl.Trainer(
+        # self.trainer is a pre-defined getter/setter in the LightningModule
+        self.trainer = pl.Trainer(
             enable_checkpointing = True,
             logger               = False,
             enable_progress_bar  = True,
-            max_epochs           = self.lit_trainer_options['max_epochs'],
-            accelerator          = self.lit_trainer_options['accelerator'],
-            devices              = self.lit_trainer_options['devices'],
-            strategy             = self.lit_trainer_options['strategy'],
-            callbacks            = [LitProgressBar(), self.lit_early_stopping, self.lit_checkpoint_callback, self.lit_matric_tracker])
+            max_epochs           = self.trainer_options['max_epochs'],
+            accelerator          = self.trainer_options['accelerator'],
+            devices              = self.trainer_options['devices'],
+            strategy             = self.trainer_options['strategy'],
+            callbacks            = [LitProgressBar(), self.trainer_early_stopping, self.trainer_checkpoint_callback, self.trainer_matric_tracker])
 
     def _train(self, data):
 
-        data = LitTensorDataset(data, **self.lit_data_options)
+        data = LitTensorDataset(data, **self.data_options)
 
         # We always need a new trainer for training the model
         self._setup_trainer_()
 
         # Train model on train data and use validation data for early stopping
-        self.lit_trainer.fit(self, data)
+        self.trainer.fit(self, data)
 
         # Get best model
-        best_model = self.load_from_checkpoint(self.lit_checkpoint_callback.best_model_path)
+        best_model = self.load_from_checkpoint(self.trainer_checkpoint_callback.best_model_path)
 
         stats = {
-            'best_val_error': self.lit_checkpoint_callback.best_model_score.item(),
-            'train_error'   : torch.stack(self.lit_matric_tracker.train_error).tolist(),
-            'val_error'     : torch.stack(self.lit_matric_tracker.val_error  ).tolist() }
+            'best_val_error'  : self.trainer_checkpoint_callback.best_model_score.item(),
+            'train_error'     : torch.stack(self.trainer_matric_tracker.train_error).tolist(),
+            'val_error'       : torch.stack(self.trainer_matric_tracker.val_error  ).tolist() }
 
         return best_model, stats
 
@@ -393,14 +393,14 @@ class LitModelWrapper(pl.LightningModule):
             data.setup_fold(fold)
 
             # Clone model
-            self.lit_model.model = deepcopy(initial_model)
+            self.model = deepcopy(initial_model)
 
             # Train model
             best_val_score = self._train(data)['best_val_error']
 
             # Test model
-            self.lit_trainer.test(self.lit_model, data)
-            test_y, test_y_hat = self.lit_model.test_y, self.lit_model.test_y_hat
+            self.trainer.test(self, data)
+            test_y, test_y_hat = self.test_y, self.test_y_hat
 
             # Print score
             print(f'Best validation score: {best_val_score}')
@@ -410,6 +410,6 @@ class LitModelWrapper(pl.LightningModule):
             y     = torch.cat((y    , test_y    ))
 
         # Compute final test score
-        test_loss = self.lit_model.loss(y_hat, y).item()
+        test_loss = self.model.loss(y_hat, y).item()
 
         return test_loss, y, y_hat
