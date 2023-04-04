@@ -397,7 +397,8 @@ class LitModelWrapper(pl.LightningModule):
         # We always need a new trainer for testing the model
         self._setup_trainer_()
 
-        # Train model on train data and use validation data for early stopping
+        # Train model on train data. The test method returns accumulated
+        # statistics sent to the logger
         stats = self.trainer.test(self, data)
 
         # There should only be one entry in stats
