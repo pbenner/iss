@@ -47,7 +47,7 @@ class ScatteringData(torch.utils.data.TensorDataset):
         return ScatteringData(inputs, outputs, self.shapes_dict, self.ndim_x, self.ndim_pad_x, self.ndim_y, self.ndim_z, self.ndim_pad_zy)
 
     @classmethod
-    def load(self, path, shapes, input_keys, ndim_pad_x, ndim_y, ndim_z, ndim_pad_zy, target = 'I'):
+    def load_from_dir(self, path, shapes, input_keys, ndim_pad_x, ndim_y, ndim_z, ndim_pad_zy, target = 'I'):
         """
         Load the trainig data from HDF files:
         Arguments:
