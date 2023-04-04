@@ -316,9 +316,9 @@ class LitModelWrapper(pl.LightningModule):
         y_batch = batch[1]
         # Call the model
         _, loss, loss_components = self.model.loss(X_batch, y_batch)
-        # Log whatever we want to aggregate later, also send it to the progress
-        # bar. We also don't want results logged at every step, but let the logger
-        # accumulate the results at the end of every epoch
+        # Send metrics to progress bar. We also don't want results
+        # logged at every step, but let the logger accumulate the
+        # results at the end of every epoch
         self.log(f'train_loss', np.log10(loss.item()), prog_bar=True, on_step=False, on_epoch=True)
         for name, value in loss_components.items():
             self.log(f'train_{name}', np.log10(value.item()), prog_bar=True, on_step=False, on_epoch=True)
@@ -331,9 +331,9 @@ class LitModelWrapper(pl.LightningModule):
         y_batch = batch[1]
         # Call the model
         _, loss, _ = self.model.loss(X_batch, y_batch)
-        # Log whatever we want to aggregate later, also send it to the progress
-        # bar. We also don't want results logged at every step, but let the logger
-        # accumulate the results at the end of every epoch
+        # Send metrics to progress bar. We also don't want results
+        # logged at every step, but let the logger accumulate the
+        # results at the end of every epoch
         self.log('val_loss', np.log10(loss.item()), prog_bar=True, on_step=False, on_epoch=True)
         # Return whatever we might need in callbacks
         return {'val_loss': loss}
@@ -376,7 +376,7 @@ class LitModelWrapper(pl.LightningModule):
         # We always need a new trainer for training the model
         self._setup_trainer_()
 
-        # Train model on train data and use validation data for early stopping
+        # Train model on train data. The fit method returns just None
         self.trainer.fit(self, data)
 
         # Get best model
