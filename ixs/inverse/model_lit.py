@@ -314,18 +314,28 @@ class LitModelWrapper(pl.LightningModule):
         """Train model on a single batch"""
         X_batch = batch[0]
         y_batch = batch[1]
+        # Call the model
         _, loss, loss_components = self.model.loss(X_batch, y_batch)
-        self.log(f'train_loss', np.log10(loss.item()), on_step=False, on_epoch=True, prog_bar=True, logger=False)
+        # Log whatever we want to aggregate later, also send it to the progress
+        # bar. We also don't want results logged at every step, but let the logger
+        # accumulate the results at the end of every epoch
+        self.log(f'train_loss', np.log10(loss.item()), prog_bar=True, on_step=False, on_epoch=True)
         for name, value in loss_components.items():
-            self.log(f'train_{name}', np.log10(value.item()), on_step=False, on_epoch=True, prog_bar=True, logger=False)
+            self.log(f'train_{name}', np.log10(value.item()), prog_bar=True, on_step=False, on_epoch=True)
+        # Return whatever we might need in callbacks
         return {'loss': loss}
 
     def validation_step(self, batch, batch_index):
         """Validate model on a single batch"""
         X_batch = batch[0]
         y_batch = batch[1]
+        # Call the model
         _, loss, _ = self.model.loss(X_batch, y_batch)
-        self.log('val_loss', np.log10(loss.item()), on_step=False, on_epoch=True, prog_bar=True, logger=False)
+        # Log whatever we want to aggregate later, also send it to the progress
+        # bar. We also don't want results logged at every step, but let the logger
+        # accumulate the results at the end of every epoch
+        self.log('val_loss', np.log10(loss.item()), prog_bar=True, on_step=False, on_epoch=True)
+        # Return whatever we might need in callbacks
         return {'val_loss': loss}
 
     def test_step(self, batch, batch_index):
