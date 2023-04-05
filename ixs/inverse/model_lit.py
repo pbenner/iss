@@ -390,7 +390,8 @@ class LitModelWrapper(pl.LightningModule):
 
         # Get best model
         best_model = self.load_from_checkpoint(self.trainer_checkpoint_callback.best_model_path)
-        # Recover all training related objects
+        # Lightning removes all training related objects before
+        # saving the model. Recover all training components
         best_model.trainer                     = self.trainer
         best_model.trainer_matric_tracker      = self.trainer_matric_tracker
         best_model.trainer_early_stopping      = self.trainer_early_stopping
