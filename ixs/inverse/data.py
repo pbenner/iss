@@ -32,35 +32,36 @@ from sklearn.model_selection import train_test_split
 
 class ScatteringData(torch.utils.data.TensorDataset):
 
-    def __init__(self, inputs, outputs, shapes_dict, ndim_x, ndim_pad_x, ndim_y, ndim_z, ndim_pad_zy):
+    def __init__(self, inputs, outputs, shapes_dict, input_features, ndim_x, ndim_pad_x, ndim_y, ndim_z, ndim_pad_zy):
     
-        self.ndim_x      = ndim_x
-        self.ndim_pad_x  = ndim_pad_x
-        self.ndim_y      = ndim_y
-        self.ndim_z      = ndim_z
-        self.ndim_pad_zy = ndim_pad_zy 
-        self.shapes_dict = shapes_dict
+        self.ndim_x         = ndim_x
+        self.ndim_pad_x     = ndim_pad_x
+        self.ndim_y         = ndim_y
+        self.ndim_z         = ndim_z
+        self.ndim_pad_zy    = ndim_pad_zy
+        self.shapes_dict    = shapes_dict   .copy()
+        self.input_features = input_features.copy()
 
         super().__init__(inputs, outputs)
 
     def __new_data__(self, inputs, outputs):
-        return ScatteringData(inputs, outputs, self.shapes_dict, self.ndim_x, self.ndim_pad_x, self.ndim_y, self.ndim_z, self.ndim_pad_zy)
+        return ScatteringData(inputs, outputs, self.shapes_dict, self.input_features, self.ndim_x, self.ndim_pad_x, self.ndim_y, self.ndim_z, self.ndim_pad_zy)
 
     @classmethod
-    def load_from_dir(self, path, shapes, input_keys, ndim_pad_x, ndim_y, ndim_z, ndim_pad_zy, target = 'I'):
+    def load_from_dir(self, path, shapes, input_features, ndim_pad_x, ndim_y, ndim_z, ndim_pad_zy, target = 'I'):
         """
         Load the trainig data from HDF files:
         Arguments:
             path(str): a directory with all HDF available for training
             shapes(int): total number of shapes present in the training set
-            input_keys(list): a list naming all the parameters a network is supposed to identify, named exatly as in the HDF trainung files and starting with 'shape' and 'radius'
+            input_features(list): a list naming all the parameters a network is supposed to identify, named exatly as in the HDF trainung files and starting with 'shape' and 'radius'
         """
 
-        if not(input_keys[0] == 'shape' and input_keys[1] == 'radius'):
+        if not(input_features[0] == 'shape' and input_features[1] == 'radius'):
             raise ValueError('The first two parameters of input keys should be named "shape" and "radius"')
 
         files = [ f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f)) ]
-        ndim_x = shapes*2 + len(input_keys)-2
+        ndim_x = shapes*2 + len(input_features)-2
 
         # Check dimensions
         assert ndim_x + ndim_pad_x == ndim_y + ndim_z + ndim_pad_zy, "Dimensions don't match up"
@@ -78,7 +79,7 @@ class ScatteringData(torch.utils.data.TensorDataset):
 
                 # Read I or I_noisy here, specified by target variable
                 outputs[i,:] = torch.from_numpy(file[f'entry/{target}'][()].flatten())
-                for i_k, key in enumerate(input_keys):
+                for i_k, key in enumerate(input_features):
                     try:
                         if key == 'shape':
                             shape = file['properties'][key][()].decode("utf-8")
@@ -97,7 +98,7 @@ class ScatteringData(torch.utils.data.TensorDataset):
                         # e.g spheres don't have all of the properties a cylinder does
                         pass
 
-        return ScatteringData(inputs, outputs, shapes_dict, ndim_x, ndim_pad_x, ndim_y, ndim_z, ndim_pad_zy)
+        return ScatteringData(inputs, outputs, shapes_dict, input_features, ndim_x, ndim_pad_x, ndim_y, ndim_z, ndim_pad_zy)
 
     def subset(self, index):
 
