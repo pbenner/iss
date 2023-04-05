@@ -328,7 +328,8 @@ class LitModelWrapper(pl.LightningModule):
         self.log(f'train_loss', np.log10(loss.item()), prog_bar=True, on_step=False, on_epoch=True)
         for name, value in loss_components.items():
             self.log(f'train_{name}', np.log10(value.item()), prog_bar=True, on_step=False, on_epoch=True)
-        # Return whatever we might need in callbacks
+        # Return whatever we might need in callbacks. Lightning automtically minimizes
+        # the item called 'loss', which must be present in the returned dictionary
         return {'loss': loss}
 
     def validation_step(self, batch, batch_index):
@@ -348,9 +349,11 @@ class LitModelWrapper(pl.LightningModule):
         """Test model on a single batch"""
         X_batch = batch[0]
         y_batch = batch[1]
-        x_hat, y_hat, loss, _ = self.model.loss(X_batch, y_batch)
+        x_hat, y_hat, loss, loss_components = self.model.loss(X_batch, y_batch)
         # Log whatever we want to aggregate later
         self.log('test_loss', loss)
+        for name, value in loss_components.items():
+            self.log(f'test_{name}', np.log10(value.item()), on_step=False, on_epoch=True)
         # Return whatever we might need in callbacks
         return {'x': X_batch, 'x_hat': x_hat, 'y': y_batch, 'y_hat': y_hat, 'test_loss': loss}
 
