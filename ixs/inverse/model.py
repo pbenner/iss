@@ -149,13 +149,11 @@ class InvertibleSASModelCore(torch.nn.Module):
         else:
             return self._predict_forward (x_or_y)
 
-    def loss_backward_mmd(self, x, y):
+    def loss_backward_mmd(self, x, x_hat, y):
         """
         Calculates the MMD loss in the backward direction
         """
-        x_samples, _ = self.freia_model(y, rev = True, jac = False) 
-
-        MMD = losses.backward_mmd(x, x_samples, self.mmd_back_kernels) 
+        MMD = losses.backward_mmd(x, x_hat, self.mmd_back_kernels)
 
         if self.mmd_back_weighted:
             MMD *= torch.exp(- 0.5 / self.y_uncertainty_sigma**2 * losses.l2_dist_matrix(y, y))
@@ -207,11 +205,13 @@ class InvertibleSASModelCore(torch.nn.Module):
 
         y = torch.cat((self.noise_batch(y.shape[0], self.ndim_z, y.device), y), dim=1)
 
-        y_hat, _ = self.freia_model(x, jac = False)
+        # Evaluate model in forward and backward direction
+        y_hat, _ = self.freia_model(x, rev = False, jac = False)
+        x_hat, _ = self.freia_model(y, rev = True , jac = False)
 
         # Evaluate all three losses
         loss_forward  = self.loss_forward_mmd(y_hat, y)
-        loss_backward = self.loss_backward_mmd(x, y)
+        loss_backward = self.loss_backward_mmd(x, x_hat, y)
         loss_reconst  = 0
 
         if self.train_reconstruction:
@@ -228,7 +228,7 @@ class InvertibleSASModelCore(torch.nn.Module):
         if self.train_reconstruction:
             loss_components['reconst'] = loss_reconst
 
-        return y_hat, loss_sum, loss_components
+        return x_hat, y_hat, loss_sum, loss_components
 
 ## ----------------------------------------------------------------------------
 

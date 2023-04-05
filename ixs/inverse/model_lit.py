@@ -45,6 +45,8 @@ class LitMetricTracker(pl.callbacks.Callback):
         self.val_error         = []
         self.train_error_batch = []
         self.train_error       = []
+        self.test_x            = []
+        self.test_x_hat        = []
         self.test_y            = []
         self.test_y_hat        = []
 
@@ -63,14 +65,18 @@ class LitMetricTracker(pl.callbacks.Callback):
         self.val_error_batch = []
 
     def on_test_batch_end(self, trainer, pl_module, outputs, batch, batch_idx):
+        self.test_x    .append(outputs['x'    ].detach().cpu())
+        self.test_x_hat.append(outputs['x_hat'].detach().cpu())
         self.test_y    .append(outputs['y'    ].detach().cpu())
         self.test_y_hat.append(outputs['y_hat'].detach().cpu())
 
     @property
     def test_predictions(self):
+        x     = torch.cat(self.test_x)
+        x_hat = torch.cat(self.test_x_hat)
         y     = torch.cat(self.test_y)
         y_hat = torch.cat(self.test_y_hat)
-        return y, y_hat
+        return x, x_hat, y, y_hat
 
 ## ----------------------------------------------------------------------------
 
@@ -315,7 +321,7 @@ class LitModelWrapper(pl.LightningModule):
         X_batch = batch[0]
         y_batch = batch[1]
         # Call the model
-        _, loss, loss_components = self.model.loss(X_batch, y_batch)
+        _, _, loss, loss_components = self.model.loss(X_batch, y_batch)
         # Send metrics to progress bar. We also don't want results
         # logged at every step, but let the logger accumulate the
         # results at the end of every epoch
@@ -330,7 +336,7 @@ class LitModelWrapper(pl.LightningModule):
         X_batch = batch[0]
         y_batch = batch[1]
         # Call the model
-        _, loss, _ = self.model.loss(X_batch, y_batch)
+        _, _, loss, _ = self.model.loss(X_batch, y_batch)
         # Send metrics to progress bar. We also don't want results
         # logged at every step, but let the logger accumulate the
         # results at the end of every epoch
@@ -342,11 +348,11 @@ class LitModelWrapper(pl.LightningModule):
         """Test model on a single batch"""
         X_batch = batch[0]
         y_batch = batch[1]
-        y_hat, loss, _ = self.model.loss(X_batch, y_batch)
+        x_hat, y_hat, loss, _ = self.model.loss(X_batch, y_batch)
         # Log whatever we want to aggregate later
         self.log('test_loss', loss)
         # Return whatever we might need in callbacks
-        return {'y': y_batch, 'y_hat': y_hat, 'test_loss': loss}
+        return {'x': X_batch, 'x_hat': x_hat, 'y': y_batch, 'y_hat': y_hat, 'test_loss': loss}
 
     def predict_step(self, batch, batch_index):
         """Prediction on a single batch"""
@@ -405,9 +411,9 @@ class LitModelWrapper(pl.LightningModule):
         assert len(stats) == 1
 
         # Get targets and predictions
-        y, y_hat = self.trainer_matric_tracker.test_predictions
+        x, x_hat, y, y_hat = self.trainer_matric_tracker.test_predictions
 
-        return y, y_hat, stats[0]
+        return x, x_hat, y, y_hat, stats[0]
 
     def _cross_validation(self, data, n_splits, shuffle = True, random_state = 42):
 
