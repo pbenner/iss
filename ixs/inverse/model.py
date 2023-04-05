@@ -40,12 +40,7 @@ class InvertibleSASModelCore(torch.nn.Module):
 
     def __init__(
             self,
-            # Data dimensions
-            ndim_x               = None,
-            ndim_y               = None,
-            ndim_z               = None,
-            ndim_pad_x           = None,
-            ndim_pad_zy          = None,
+            metadata             = None,
             # Noise options
             add_y_noise          = 0,
             add_z_noise          = 2e-2,
@@ -61,11 +56,14 @@ class InvertibleSASModelCore(torch.nn.Module):
 
         super().__init__()
 
-        self.ndim_x               = ndim_x
-        self.ndim_y               = ndim_y
-        self.ndim_z               = ndim_z
-        self.ndim_pad_x           = ndim_pad_x
-        self.ndim_pad_zy          = ndim_pad_zy
+        if metadata is None:
+            raise ValueError('metadata is a required keyword argument')
+
+        self.ndim_x               = metadata['ndim_x']
+        self.ndim_y               = metadata['ndim_y']
+        self.ndim_z               = metadata['ndim_z']
+        self.ndim_pad_x           = metadata['ndim_pad_x']
+        self.ndim_pad_zy          = metadata['ndim_pad_zy']
 
         self.add_y_noise          = add_y_noise
         self.add_z_noise          = add_z_noise
@@ -83,7 +81,7 @@ class InvertibleSASModelCore(torch.nn.Module):
         self.mmd_back_kernels     = [(0.2, 1/2), (0.2, 1/2), (0.2, 1/2)]
         self.mmd_back_weighted    = True
 
-        input = Ff.InputNode(ndim_x + ndim_pad_x, name='input')
+        input = Ff.InputNode(self.ndim_x + self.ndim_pad_x, name='input')
         nodes = [input]
 
         for i in range(nblocks):

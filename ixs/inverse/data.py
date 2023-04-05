@@ -26,7 +26,32 @@ import torch
 import h5py
 import os
 
+from collections import UserDict
 from sklearn.model_selection import train_test_split
+
+## ----------------------------------------------------------------------------
+
+class ScatteringMetaData(UserDict):
+
+    def __init__(self, shapes_dict, input_features, ndim_x, ndim_pad_x, ndim_y, ndim_z, ndim_pad_zy):
+
+        super().__init__()
+        # Set config values, use method from super class to add
+        # new items
+        super().__setitem__('shapes_dict',    shapes_dict)
+        super().__setitem__('input_features', input_features)
+        super().__setitem__('ndim_x',         ndim_x)
+        super().__setitem__('ndim_pad_x',     ndim_pad_x)
+        super().__setitem__('ndim_y',         ndim_y)
+        super().__setitem__('ndim_z',         ndim_z)
+        super().__setitem__('ndim_pad_zy',    ndim_pad_zy)
+
+    def __setitem__(self, key, value):
+
+        if key not in self:
+            raise KeyError(f'"{key}" is an invalid parameter')
+
+        super().__setitem__(key, value)
 
 ## ----------------------------------------------------------------------------
 
@@ -46,6 +71,10 @@ class ScatteringData(torch.utils.data.TensorDataset):
 
     def __new_data__(self, inputs, outputs):
         return ScatteringData(inputs, outputs, self.shapes_dict, self.input_features, self.ndim_x, self.ndim_pad_x, self.ndim_y, self.ndim_z, self.ndim_pad_zy)
+
+    @property
+    def metadata(self):
+        return ScatteringMetaData(self.shapes_dict, self.input_features, self.ndim_x, self.ndim_pad_x, self.ndim_y, self.ndim_z, self.ndim_pad_zy)
 
     @classmethod
     def load_from_dir(self, path, shapes, input_features, ndim_pad_x, ndim_y, ndim_z, ndim_pad_zy, target = 'I'):
