@@ -54,14 +54,14 @@ class LitMetricTracker(pl.callbacks.Callback):
         self.train_error_batch.append(outputs['loss'].item())
 
     def on_train_epoch_end(self, *args, **kwargs):
-        self.train_error.append(torch.mean(torch.tensor(self.train_error_batch)))
+        self.train_error.append(torch.mean(torch.tensor(self.train_error_batch)).item())
         self.train_error_batch = []
 
     def on_validation_batch_end(self, trainer, pl_module, outputs, batch, batch_idx):
         self.val_error_batch.append(outputs['val_loss'].item())
 
     def on_validation_epoch_end(self, trainer, pl_module):
-        self.val_error.append(torch.mean(torch.tensor(self.val_error_batch)))
+        self.val_error.append(torch.mean(torch.tensor(self.val_error_batch)).item())
         self.val_error_batch = []
 
     def on_test_batch_end(self, trainer, pl_module, outputs, batch, batch_idx):
@@ -390,11 +390,16 @@ class LitModelWrapper(pl.LightningModule):
 
         # Get best model
         best_model = self.load_from_checkpoint(self.trainer_checkpoint_callback.best_model_path)
+        # Recover all training related objects
+        best_model.trainer                     = self.trainer
+        best_model.trainer_matric_tracker      = self.trainer_matric_tracker
+        best_model.trainer_early_stopping      = self.trainer_early_stopping
+        best_model.trainer_checkpoint_callback = self.trainer_checkpoint_callback
 
         stats = {
             'best_val_error'  : self.trainer_checkpoint_callback.best_model_score.item(),
-            'train_error'     : torch.stack(self.trainer_matric_tracker.train_error).tolist(),
-            'val_error'       : torch.stack(self.trainer_matric_tracker.val_error  ).tolist() }
+            'train_error'     : self.trainer_matric_tracker.train_error,
+            'val_error'       : self.trainer_matric_tracker.val_error }
 
         return best_model, stats
 
