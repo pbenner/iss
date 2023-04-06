@@ -325,9 +325,9 @@ class LitModelWrapper(pl.LightningModule):
         # Send metrics to progress bar. We also don't want results
         # logged at every step, but let the logger accumulate the
         # results at the end of every epoch
-        self.log(f'train_loss', np.log10(loss.item()), prog_bar=True, on_step=False, on_epoch=True)
+        self.log(f'train_loss', loss.item(), prog_bar=True, on_step=False, on_epoch=True)
         for name, value in loss_components.items():
-            self.log(f'train_{name}', np.log10(value.item()), prog_bar=True, on_step=False, on_epoch=True)
+            self.log(f'train_{name}', value.item(), prog_bar=True, on_step=False, on_epoch=True)
         # Return whatever we might need in callbacks. Lightning automtically minimizes
         # the item called 'loss', which must be present in the returned dictionary
         return {'loss': loss}
@@ -341,7 +341,7 @@ class LitModelWrapper(pl.LightningModule):
         # Send metrics to progress bar. We also don't want results
         # logged at every step, but let the logger accumulate the
         # results at the end of every epoch
-        self.log('val_loss', np.log10(loss.item()), prog_bar=True, on_step=False, on_epoch=True)
+        self.log('val_loss', loss.item(), prog_bar=True, on_step=False, on_epoch=True)
         # Return whatever we might need in callbacks
         return {'val_loss': loss}
 
@@ -353,7 +353,7 @@ class LitModelWrapper(pl.LightningModule):
         # Log whatever we want to aggregate later
         self.log('test_loss', loss)
         for name, value in loss_components.items():
-            self.log(f'test_{name}', np.log10(value.item()), on_step=False, on_epoch=True)
+            self.log(f'test_{name}', value.item(), on_step=False, on_epoch=True)
         # Return whatever we might need in callbacks
         return {'x': X_batch, 'x_hat': x_hat, 'y': y_batch, 'y_hat': y_hat, 'test_loss': loss}
 
