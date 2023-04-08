@@ -5,11 +5,11 @@ from setuptools import find_packages, setup
 setup(
 	name             = 'ixs',
 	packages         = find_packages(),      
-    version          = '0.0.1',
+	version          = '0.0.1',
 	description      = 'Forward and inverse models of small angle scattering',
 	long_description = 'file: README.md',
-	author           = 'Sofya Laskina',
-	author_email     = 'sofyalaskina@gmail.com',
+	author           = 'Philipp Benner',
+	author_email     = 'philipp.benner@bam.de',
 	license          = 'MIT',
 	classifiers      = [
 		'Natural Language :: English',
