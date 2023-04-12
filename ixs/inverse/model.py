@@ -32,7 +32,7 @@ from sklearn.preprocessing import StandardScaler
 
 from .          import losses
 from .data      import ScatteringData
-from .model_lit import LitProgressBar, LitMetricTracker, LitTensorDataset, LitModelWrapper
+from .model_lit import LitModelWrapper
 
 ## ----------------------------------------------------------------------------
 
