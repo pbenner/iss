@@ -147,7 +147,7 @@ class InvertibleSASModelCore(torch.nn.Module):
             y_hat = y_hat[:, 0:self.ndim_y]
             return y_hat
 
-    def loss_backward_mmd(self, x, x_hat, y):
+    def loss_mmd_backward(self, x, x_hat, y):
         """
         Calculates the MMD loss in the backward direction
         """
@@ -158,7 +158,7 @@ class InvertibleSASModelCore(torch.nn.Module):
 
         return self.lambd_mmd_back * torch.mean(MMD)
 
-    def loss_forward_mmd(self, y, y_hat):
+    def loss_mmd_forward(self, y, y_hat):
         """
         Calculate MMD loss in the forward direction
         """
@@ -194,8 +194,8 @@ class InvertibleSASModelCore(torch.nn.Module):
         x_hat, y = self._predict_backward(y)
 
         # Evaluate all three losses
-        loss_forward  = self.loss_forward_mmd (y, y_hat)
-        loss_backward = self.loss_backward_mmd(x, x_hat, y)
+        loss_forward  = self.loss_mmd_forward (y, y_hat)
+        loss_backward = self.loss_mmd_backward(x, x_hat, y)
         loss_reconst  = 0
 
         if self.train_reconstruction:
