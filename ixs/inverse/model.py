@@ -114,12 +114,9 @@ class InvertibleSASModelCore(torch.nn.Module):
         if self.ndim_pad_x:
             x = torch.cat((x, self.add_pad_noise * self.noise_batch(x.shape[0], self.ndim_pad_x, x.device)), dim=1)
 
-        y, _ = self.freia_model(x, rev = False, jac = False)
+        y_hat, _ = self.freia_model(x, rev = False, jac = False)
 
-        # Truncate padded part
-        y = y[:, 0:self.ndim_y]
-
-        return y
+        return y_hat, x
 
     def _predict_backward(self, y):
 
@@ -131,21 +128,24 @@ class InvertibleSASModelCore(torch.nn.Module):
         if self.ndim_pad_zy > 0:
             y = torch.cat((self.add_pad_noise * self.noise_batch(y.shape[0], self.ndim_pad_zy, y.device), y), dim=1)
 
-        yz = torch.cat((self.noise_batch(y.shape[0], self.ndim_z, y.device), y), dim=1)
+        y = torch.cat((self.noise_batch(y.shape[0], self.ndim_z, y.device), y), dim=1)
 
-        x, _ = self.freia_model(yz, rev = True, jac = False)
+        x_hat, _ = self.freia_model(y, rev = True, jac = False)
 
-        # Truncate padded part
-        x = x[:, 0:self.ndim_x]
-
-        return x
+        return x_hat, y
 
     def forward(self, x_or_y, rev = False):
 
         if rev:
-            return self._predict_backward(x_or_y)
+            x_hat, _ = self._predict_backward(x_or_y)
+            # Truncate padded part
+            x_hat = x_hat[:, 0:self.ndim_x]
+            return x_hat
         else:
-            return self._predict_forward (x_or_y)
+            y_hat, _ = self._predict_forward (x_or_y)
+            # Truncate padded part
+            y_hat = y_hat[:, 0:self.ndim_y]
+            return y_hat
 
     def loss_backward_mmd(self, x, x_hat, y):
         """
@@ -158,16 +158,16 @@ class InvertibleSASModelCore(torch.nn.Module):
 
         return self.lambd_mmd_back * torch.mean(MMD)
 
-    def loss_forward_mmd(self, out, y):
+    def loss_forward_mmd(self, y, y_hat):
         """
         Calculate MMD loss in the forward direction
         """
         output_block_grad = torch.cat(
-            (out[:, :self.ndim_z ],
-             out[:, -self.ndim_y:].data), dim=1) 
+            (y_hat[:, :self.ndim_z ],
+             y_hat[:, -self.ndim_y:].data), dim=1)
         y_short = torch.cat((y[:, :self.ndim_z], y[:, -self.ndim_y:]), dim=1)
 
-        l_forw_fit = self.lambd_fit_forw * losses.l2_fit(out[:, self.ndim_z:], y[:, self.ndim_z:])
+        l_forw_fit = self.lambd_fit_forw * losses.l2_fit(y_hat[:, self.ndim_z:], y[:, self.ndim_z:])
         l_forw_mmd = self.lambd_mmd_forw * torch.mean(losses.forward_mmd(output_block_grad, y_short, self.mmd_forw_kernels))
 
         return l_forw_fit, l_forw_mmd
@@ -188,27 +188,13 @@ class InvertibleSASModelCore(torch.nn.Module):
 
     def loss(self, x, y):
 
-        assert len(x.shape) == 2, 'Input data has invalid dimension'
-        assert x.shape[1] == self.ndim_x, 'Input data has invalid dimension'
-
-        assert len(y.shape) == 2, 'Input data has invalid dimension'
-        assert y.shape[1] == self.ndim_y, 'Input data has invalid dimension'
-
-        if self.ndim_pad_x > 0:
-            x = torch.cat((x, self.add_pad_noise * self.noise_batch(x.shape[0], self.ndim_pad_x, x.device)), dim=1) 
-        if self.add_y_noise > 0:
-            y += self.add_y_noise * self.noise_batch(y.shape[0], self.ndim_y, y.device)
-        if self.ndim_pad_zy > 0:
-            y = torch.cat((self.add_pad_noise * self.noise_batch(y.shape[0], self.ndim_pad_zy, y.device), y), dim=1)
-
-        y = torch.cat((self.noise_batch(y.shape[0], self.ndim_z, y.device), y), dim=1)
-
-        # Evaluate model in forward and backward direction
-        y_hat, _ = self.freia_model(x, rev = False, jac = False)
-        x_hat, _ = self.freia_model(y, rev = True , jac = False)
+        # Augment x/y and predict in both directions. The augmented
+        # tensors are required to compute the loss
+        y_hat, x = self._predict_forward (x)
+        x_hat, y = self._predict_backward(y)
 
         # Evaluate all three losses
-        loss_forward  = self.loss_forward_mmd(y_hat, y)
+        loss_forward  = self.loss_forward_mmd (y, y_hat)
         loss_backward = self.loss_backward_mmd(x, x_hat, y)
         loss_reconst  = 0
 
