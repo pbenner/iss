@@ -20,9 +20,5 @@
 
 ## ----------------------------------------------------------------------------
 
-from .data           import *
-from .model          import *
-from .losses         import *
-from .monitoring     import *
-from .utils          import *
-from .visualizations import *
+from .data  import ScatteringData, ScatteringMetaData
+from .model import InvertibleSASModel
