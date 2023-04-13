@@ -77,9 +77,14 @@ class ScatteringData(torch.utils.data.TensorDataset):
         return ScatteringMetaData(self.shapes_dict, self.input_features, self.ndim_x, self.ndim_pad_x, self.ndim_y, self.ndim_z, self.ndim_pad_zy)
 
     @classmethod
-    def load_from_dir(self, path, shapes, input_features, ndim_pad_x, ndim_y, ndim_z, ndim_pad_zy, target = 'I'):
+    def load_from_dir(self, path, n_shapes, input_features, ndim_pad_x, ndim_y, ndim_z, ndim_pad_zy, target = 'I'):
         """
-        Load the trainig data from HDF files:
+        Load the trainig data from HDF files. The result is a data set of inputs (parameters) and outputs (scattering curves).
+        The matrix of inputs encodes shapes using one-hot-encoding, i.e. the first n_shapes columns determine the type of shape,
+        where n_shapes is the number of shapes in the data set. In addition, each shape has a separate column for the radius.
+        All other parameters are sharing the same column for all shapes. Hence, the first 2*n_shapes columns are reserved for
+        shape and radius information, and the rest corresponds to the remaining features.
+
         Arguments:
             path(str): a directory with all HDF available for training
             shapes(int): total number of shapes present in the training set
@@ -90,7 +95,7 @@ class ScatteringData(torch.utils.data.TensorDataset):
             raise ValueError('The first two parameters of input keys should be named "shape" and "radius"')
 
         files = [ f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f)) ]
-        ndim_x = shapes*2 + len(input_features)-2
+        ndim_x = n_shapes*2 + len(input_features)-2
 
         # Check dimensions
         assert ndim_x + ndim_pad_x == ndim_y + ndim_z + ndim_pad_zy, "Dimensions don't match up"
@@ -112,17 +117,17 @@ class ScatteringData(torch.utils.data.TensorDataset):
                     try:
                         if key == 'shape':
                             shape = file['properties'][key][()].decode("utf-8")
-                            value = torch.zeros(shapes)
+                            value = torch.zeros(n_shapes)
                             if shape not in shapes_dict:
                                 shapes_dict[shape] = max(list(shapes_dict.values()))+1 if len(shapes_dict.keys()) > 0 else 0
                             value[shapes_dict[shape]] = 1
-                            inputs[i, i_k:i_k+shapes] = value
+                            inputs[i, i_k:i_k+n_shapes] = value
                         elif key == 'radius':
-                            value = torch.zeros(shapes)
+                            value = torch.zeros(n_shapes)
                             value[shapes_dict[shape]] = file['properties'][key][()]
-                            inputs[i, i_k+(shapes-1):i_k+(shapes*2-1)] = value
+                            inputs[i, i_k+(n_shapes-1):i_k+(n_shapes*2-1)] = value
                         else:
-                            inputs[i, i_k+(shapes*2-2)] = file['properties'][key][()]
+                            inputs[i, i_k+(n_shapes*2-2)] = file['properties'][key][()]
                     except KeyError:
                         # e.g spheres don't have all of the properties a cylinder does
                         pass
