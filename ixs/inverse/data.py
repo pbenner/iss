@@ -141,66 +141,6 @@ class ScatteringData(torch.utils.data.TensorDataset):
 
         return self.subset(idx_train), self.subset(idx_test)
 
-    def fit_scaler_inputs(self, scaler):
-
-        n_shapes = len(self.shapes_dict.keys())
-
-        # Split data matrix into left and right part
-        x_right = self.X[:, n_shapes:]
-
-        # Fit and apply scaler
-        scaler.fit(x_right)
-
-    def fit_scaler_outputs(self, scaler):
-
-        pass
-
-    def normalize_inputs(self, scaler, X = None):
-
-        if X is None:
-            X = self.X
-
-        n_shapes = len(self.shapes_dict.keys())
-
-        # Split data matrix into left and right part
-        x_left  = self.X[:,:n_shapes ]
-        x_right = self.X[:, n_shapes:]
-
-        x_tmp = torch.from_numpy(scaler.transform(x_right))
-        x_tmp = torch.concatenate((x_left, x_tmp), axis=1).type(torch.float32)
-
-        return self.__new_data__(x_tmp, self.y)
-
-    def denormalize_inputs(self, scaler, X = None):
-
-        if X is None:
-            X = self.X
-
-        n_shapes = len(self.shapes_dict.keys())
-
-        # Split data matrix into left and right part
-        x_left  = X[:,:n_shapes ]
-        x_right = X[:, n_shapes:]
-
-        x_tmp = torch.from_numpy(scaler.inverse_transform(x_right))
-        x_tmp = torch.concatenate((x_left, x_tmp), axis=1).type(torch.float32)
-
-        return self.__new_data__(x_tmp, self.y)
-
-    def normalize_outputs(self, scaler, y = None):
-
-        if y is None:
-            y = self.y
-
-        return self.__new_data__(self.X, y)
-
-    def denormalize_outputs(self, scaler, y = None):
-
-        if y is None:
-            y = self.y
-
-        return self.__new_data__(self.X, y)
-
     @property
     def X(self):
         return self.tensors[0]

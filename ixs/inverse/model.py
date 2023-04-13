@@ -23,16 +23,13 @@
 
 import dill
 import torch
-import pytorch_lightning as pl
 import FrEIA.framework as Ff
 import FrEIA.modules   as Fm
-
-from copy import deepcopy
-from sklearn.preprocessing import StandardScaler
 
 from .          import losses
 from .data      import ScatteringData
 from .model_lit import LitModelWrapper
+from .scaler    import SASScaler
 
 ## ----------------------------------------------------------------------------
 
@@ -81,6 +78,8 @@ class InvertibleSASModelCore(torch.nn.Module):
         self.mmd_back_kernels     = [(0.2, 1/2), (0.2, 1/2), (0.2, 1/2)]
         self.mmd_back_weighted    = True
 
+        self.scaler               = SASScaler(self.ndim_x, self.ndim_y, metadata['shapes_dict'])
+
         input = Ff.InputNode(self.ndim_x + self.ndim_pad_x, name='input')
         nodes = [input]
 
@@ -114,7 +113,9 @@ class InvertibleSASModelCore(torch.nn.Module):
         if self.ndim_pad_x:
             x = torch.cat((x, self.add_pad_noise * self.noise_batch(x.shape[0], self.ndim_pad_x, x.device)), dim=1)
 
-        y_hat, _ = self.freia_model(x, rev = False, jac = False)
+        x_norm   = self.scaler.normalize_input(x)
+        y_hat, _ = self.freia_model(x_norm, rev = False, jac = False)
+        y_hat    = self.scaler.denormalize_output(y_hat)
 
         return y_hat, x
 
@@ -130,7 +131,9 @@ class InvertibleSASModelCore(torch.nn.Module):
 
         y = torch.cat((self.noise_batch(y.shape[0], self.ndim_z, y.device), y), dim=1)
 
-        x_hat, _ = self.freia_model(y, rev = True, jac = False)
+        y_norm   = self.scaler.normalize_output(y)
+        x_hat, _ = self.freia_model(y_norm, rev = True, jac = False)
+        x_hat    = self.scaler.denormalize_input(x_hat)
 
         return x_hat, y
 
@@ -221,8 +224,6 @@ class InvertibleSASModel():
     def __init__(self, **kwargs):
 
         self.lit_model = LitModelWrapper(InvertibleSASModelCore, **kwargs)
-        self.scaler_inputs  = StandardScaler()
-        self.scaler_outputs = None
 
     def cross_validation(self, data : ScatteringData, n_splits, shuffle = True, random_state = 42):
 
@@ -233,11 +234,9 @@ class InvertibleSASModel():
 
     def train(self, data : ScatteringData):
 
-        data.fit_scaler_inputs (self.scaler_inputs)
-        data.fit_scaler_outputs(self.scaler_outputs)
-
-        data = data.normalize_inputs (self.scaler_inputs)
-        data = data.normalize_outputs(self.scaler_outputs)
+        # We need the whole data for fitting the scalers, not just batches
+        self.lit_model.model.scaler.fit_input (data.X)
+        self.lit_model.model.scaler.fit_output(data.y)
 
         best_model, stats = self.lit_model._train(data)
 
@@ -247,30 +246,19 @@ class InvertibleSASModel():
 
     def test(self, data : ScatteringData):
 
-        data = data.normalize_inputs (self.scaler_inputs)
-        data = data.normalize_outputs(self.scaler_outputs)
-
         return self.lit_model._test(data)
 
     def predict_forward(self, data : ScatteringData):
 
-        X = data.normalize_inputs(self.scaler_inputs).X
-
         with torch.no_grad():
-            y = self.lit_model.model(X, rev = False)
-
-        y = data.denormalize_outputs(self.scaler_outputs, y = y).y
+            y = self.lit_model.model(data.X, rev = False)
 
         return y
 
     def predict_backward(self, data : ScatteringData):
 
-        y = data.normalize_outputs(self.scaler_outputs).y
-
         with torch.no_grad():
-            X = self.lit_model.model(y, rev = True)
-
-        X = data.denormalize_inputs(self.scaler_inputs, X = X).X
+            X = self.lit_model.model(data.y, rev = True)
 
         return X
 
