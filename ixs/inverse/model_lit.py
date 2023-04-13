@@ -341,7 +341,7 @@ class LitModelWrapper(pl.LightningModule):
 
     def _setup_trainer_(self):
         self.trainer_matric_tracker      = LitMetricTracker()
-        self.trainer_early_stopping      = pl.callbacks.EarlyStopping(monitor = 'val_loss', patience = self.trainer_options['patience_es'])
+        self.trainer_early_stopping      = pl.callbacks.EarlyStopping(monitor = 'train_loss', patience = self.trainer_options['patience_es'])
         self.trainer_checkpoint_callback = pl.callbacks.ModelCheckpoint(save_top_k = 1, monitor = 'val_loss', mode = 'min')
 
         # self.trainer is a pre-defined getter/setter in the LightningModule
