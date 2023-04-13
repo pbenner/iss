@@ -26,7 +26,6 @@ import torch
 import pytorch_lightning as pl
 import sys
 
-from copy   import deepcopy
 from tqdm   import tqdm
 from typing import Optional
 
@@ -163,45 +162,24 @@ class LitVerboseOptimizer(torch.optim.Optimizer):
 ## ----------------------------------------------------------------------------
 
 class LitTensorDataset(pl.LightningDataModule):
-    def __init__(self, data : torch.utils.data.Dataset, n_splits = 1, val_size = 0.2, batch_size = 32, num_workers = 2, shuffle = True, random_state = 42):
+    def __init__(self, data : torch.utils.data.Dataset, val_size = 0.2, batch_size = 32, num_workers = 2):
         super().__init__()
         self.num_workers  = num_workers
         self.val_size     = val_size
         self.batch_size   = batch_size
         self.data         = data
-        # Setup k-fold cross-validation if n_splits > 1
-        self.n_splits     = n_splits
-        if n_splits > 1:
-            self.splits   = list(KFold(n_splits, shuffle = shuffle, random_state = random_state).split(self.data.X, self.data.y))
-
-    # Custom method to set the fold for cross-validation
-    def setup_fold(self, k):
-        if self.n_splits < 2:
-            raise ValueError(f'k-fold cross-validation is not available, because n_splits is set to {self.n_splits}')
-        self.k = k
 
     # This function is called by lightning trainer class with
     # the corresponding stage option
     def setup(self, stage: Optional[str] = None):
         # Assign train/val datasets for use in dataloaders
         if stage == 'fit' or stage == None:
-            # Check if we are using cross-validation
-            if self.n_splits > 1:
-                train_index, _  = self.splits[self.k]
-                self.data_train = torch.utils.data.Subset(self.data, train_index)
-            else:
-                self.data_train = self.data
             # Take a piece of the training data for validation
-            self.data_train, self.data_val = torch.utils.data.random_split(self.data_train, [1.0 - self.val_size, self.val_size])
+            self.data_train, self.data_val = torch.utils.data.random_split(self.data, [1.0 - self.val_size, self.val_size])
 
         # Assign test dataset for use in dataloader(s)
         if stage == 'test' or stage == None:
-            # Check if we are using cross-validation
-            if self.n_splits > 1:
-                _, test_index = self.splits[self.k]
-                self.data_test = torch.utils.data.Subset(self.data, test_index)
-            else:
-                self.data_test = self.data
+            self.data_test = self.data
 
     # Custom method to create a data loader
     def get_dataloader(self, data):
@@ -423,42 +401,3 @@ class LitModelWrapper(pl.LightningModule):
         x, x_hat, y, y_hat = self.trainer_matric_tracker.test_predictions
 
         return x, x_hat, y, y_hat, stats[0]
-
-    def _cross_validation(self, data, n_splits, shuffle = True, random_state = 42):
-
-        data = LitTensorDataset(data, n_splits = n_splits, shuffle = shuffle, random_state = random_state, **self.lit_data_options)
-
-        if data.n_splits < 2:
-            raise ValueError(f'k-fold cross-validation requires at least one train/test split by setting n_splits=2 or more, got n_splits={n_splits}')
-
-        y_hat = torch.tensor([], dtype = torch.float)
-        y     = torch.tensor([], dtype = torch.float)
-
-        initial_model = self.model
-
-        for fold in range(data.n_splits):
-
-            print(f'Training fold {fold+1}/{data.n_splits}...')
-            data.setup_fold(fold)
-
-            # Clone model
-            self.model = deepcopy(initial_model)
-
-            # Train model
-            best_val_score = self._train(data)['best_val_error']
-
-            # Test model
-            test_y, test_y_hat, _ = self._test(self, data)
-
-            # Print score
-            print(f'Best validation score: {best_val_score}')
-
-            # Save predictions for model evaluation
-            y_hat = torch.cat((y_hat, test_y_hat))
-            y     = torch.cat((y    , test_y    ))
-
-        # Compute final test score (TODO)
-        raise NotImplementedError
-        test_loss = self.loss(y_hat, y).item()
-
-        return test_loss, y, y_hat

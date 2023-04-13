@@ -26,6 +26,9 @@ import torch
 import FrEIA.framework as Ff
 import FrEIA.modules   as Fm
 
+from copy                    import deepcopy
+from sklearn.model_selection import KFold
+
 from .          import losses
 from .data      import ScatteringData
 from .model_lit import LitModelWrapper
@@ -261,6 +264,54 @@ class InvertibleSASModel():
             X = self.lit_model.model(data.y, rev = True)
 
         return X
+
+    def cross_validation(self, data : ScatteringData, n_splits, shuffle = True, random_state = 42):
+
+        if data.n_splits < 2:
+            raise ValueError(f'k-fold cross-validation requires at least one train/test split by setting n_splits=2 or more, got n_splits={n_splits}')
+
+        x_hat  = torch.tensor([], dtype = torch.float)
+        x      = torch.tensor([], dtype = torch.float)
+        y_hat  = torch.tensor([], dtype = torch.float)
+        y      = torch.tensor([], dtype = torch.float)
+        losses = torch.tensor([], dtype = torch.float)
+
+        initial_model = self.lit_model
+
+        for fold, (index_train, index_test) in enumerate(KFold(n_splits, shuffle = shuffle, random_state = random_state).split(data)):
+
+            print(f'Training fold {fold+1}/{data.n_splits}...')
+
+            data_train = data.subset(index_train)
+            data_test  = data.subset(index_test )
+
+            # Clone model
+            self.lit_model = deepcopy(initial_model)
+
+            # Train model
+            best_val_score = self._train(data_train)['best_val_error']
+
+            # Test model
+            test_x, test_x_hat, test_y, test_y_hat, stats = self._test(data_test)
+
+            # Print score
+            print(f'Best validation score: {best_val_score}')
+
+            # Save predictions for model evaluation
+            x_hat  = torch.cat((x_hat, test_x_hat))
+            x      = torch.cat((x    , test_x    ))
+            y_hat  = torch.cat((y_hat, test_y_hat))
+            y      = torch.cat((y    , test_y    ))
+            # Save loss on test data
+            losses = torch.cat((losses, stats['test_loss']))
+
+        # Reset model
+        self.lit_model = initial_model
+
+        # Compute average loss
+        test_loss = losses.mean().item()
+
+        return test_loss, x, x_hat, y, y_hat
 
     @classmethod
     def load(cls, filename : str) -> 'InvertibleSASModel':
