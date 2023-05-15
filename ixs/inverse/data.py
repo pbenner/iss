@@ -109,7 +109,7 @@ class ScatteringData(torch.utils.data.TensorDataset):
 
                 print(f'Reading: {file}', end = '\r')
 
-                assert ndim_y ==  torch.from_numpy(file['entry/I'][()].flatten()).shape[0], "scattering curve has different size"
+                assert ndim_y ==  torch.from_numpy(file[f'entry/{target}'][()].flatten()).shape[0], "scattering curve has different size"
 
                 # Read I or I_noisy here, specified by target variable
                 outputs[i,:] = torch.from_numpy(file[f'entry/{target}'][()].flatten())
