@@ -77,7 +77,7 @@ class ScatteringData(torch.utils.data.TensorDataset):
         return ScatteringMetaData(self.shapes_dict, self.input_features, self.ndim_x, self.ndim_pad_x, self.ndim_y, self.ndim_z, self.ndim_pad_zy)
 
     @classmethod
-    def load_from_dir(self, path, n_shapes, input_features, ndim_pad_x, ndim_y, ndim_z, ndim_pad_zy, target = 'I'):
+    def load_from_dir(self, path, n_shapes, input_features, ndim_pad_x, ndim_y, ndim_z, ndim_pad_zy, target = 'I', logI = True):
         """
         Load the trainig data from HDF files. The result is a data set of inputs (parameters) and outputs (scattering curves).
         The matrix of inputs encodes shapes using one-hot-encoding, i.e. the first n_shapes columns determine the type of shape,
@@ -113,6 +113,9 @@ class ScatteringData(torch.utils.data.TensorDataset):
 
                 # Read I or I_noisy here, specified by target variable
                 outputs[i,:] = torch.from_numpy(file[f'entry/{target}'][()].flatten())
+                if logI:
+                    outputs[i,:] = torch.log(outputs[i,:])
+                # Read input parameters
                 for i_k, key in enumerate(input_features):
                     try:
                         if key == 'shape':
