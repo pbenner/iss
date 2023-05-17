@@ -33,11 +33,12 @@ from sklearn.model_selection import train_test_split
 
 class ScatteringMetaData(UserDict):
 
-    def __init__(self, shapes_dict, input_features, ndim_x, ndim_pad_x, ndim_y, ndim_z, ndim_pad_zy):
+    def __init__(self, qx, shapes_dict, input_features, ndim_x, ndim_pad_x, ndim_y, ndim_z, ndim_pad_zy):
 
         super().__init__()
         # Set config values, use method from super class to add
         # new items
+        super().__setitem__('qx',             qx)
         super().__setitem__('shapes_dict',    shapes_dict)
         super().__setitem__('input_features', input_features)
         super().__setitem__('ndim_x',         ndim_x)
@@ -57,7 +58,7 @@ class ScatteringMetaData(UserDict):
 
 class ScatteringData(torch.utils.data.TensorDataset):
 
-    def __init__(self, inputs, outputs, shapes_dict, input_features, ndim_x, ndim_pad_x, ndim_y, ndim_z, ndim_pad_zy):
+    def __init__(self, inputs, outputs, qx, shapes_dict, input_features, ndim_x, ndim_pad_x, ndim_y, ndim_z, ndim_pad_zy):
     
         self.ndim_x         = ndim_x
         self.ndim_pad_x     = ndim_pad_x
@@ -66,18 +67,15 @@ class ScatteringData(torch.utils.data.TensorDataset):
         self.ndim_pad_zy    = ndim_pad_zy
         self.shapes_dict    = shapes_dict   .copy()
         self.input_features = input_features.copy()
+        self.qx             = qx
 
         super().__init__(inputs, outputs)
 
     def __new_data__(self, inputs, outputs):
-        return ScatteringData(inputs, outputs, self.shapes_dict, self.input_features, self.ndim_x, self.ndim_pad_x, self.ndim_y, self.ndim_z, self.ndim_pad_zy)
-
-    @property
-    def metadata(self):
-        return ScatteringMetaData(self.shapes_dict, self.input_features, self.ndim_x, self.ndim_pad_x, self.ndim_y, self.ndim_z, self.ndim_pad_zy)
+        return ScatteringData(inputs, outputs, self.qx, self.shapes_dict, self.input_features, self.ndim_x, self.ndim_pad_x, self.ndim_y, self.ndim_z, self.ndim_pad_zy)
 
     @classmethod
-    def load_from_dir(self, path, n_shapes, input_features, ndim_pad_x, ndim_y, ndim_z, ndim_pad_zy, target = 'I', logI = True):
+    def load_from_dir(cls, path, n_shapes, input_features, ndim_pad_x, ndim_y, ndim_z, ndim_pad_zy, target = 'I', logI = True):
         """
         Load the trainig data from HDF files. The result is a data set of inputs (parameters) and outputs (scattering curves).
         The matrix of inputs encodes shapes using one-hot-encoding, i.e. the first n_shapes columns determine the type of shape,
@@ -96,6 +94,7 @@ class ScatteringData(torch.utils.data.TensorDataset):
 
         files = [ f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f)) ]
         ndim_x = n_shapes*2 + len(input_features)-2
+        qx = None
 
         # Check dimensions
         assert ndim_x + ndim_pad_x == ndim_y + ndim_z + ndim_pad_zy, "Dimensions don't match up"
@@ -109,7 +108,12 @@ class ScatteringData(torch.utils.data.TensorDataset):
 
                 print(f'Reading: {file}', end = '\r')
 
-                assert ndim_y ==  torch.from_numpy(file[f'entry/{target}'][()].flatten()).shape[0], "scattering curve has different size"
+                assert ndim_y == torch.from_numpy(file[f'entry/{target}'][()].flatten()).shape[0], "scattering curve has different size"
+
+                if qx is None:
+                    qx = torch.from_numpy(file[f'entry/qx'][()])
+                else:
+                    assert torch.mean((qx - torch.from_numpy(file[f'entry/qx'][()]))**2).item() < 1e-8, "qx values differ"
 
                 # Read I or I_noisy here, specified by target variable
                 outputs[i,:] = torch.from_numpy(file[f'entry/{target}'][()].flatten())
@@ -135,7 +139,7 @@ class ScatteringData(torch.utils.data.TensorDataset):
                         # e.g spheres don't have all of the properties a cylinder does
                         pass
 
-        return ScatteringData(inputs, outputs, shapes_dict, input_features, ndim_x, ndim_pad_x, ndim_y, ndim_z, ndim_pad_zy)
+        return ScatteringData(inputs, outputs, qx, shapes_dict, input_features, ndim_x, ndim_pad_x, ndim_y, ndim_z, ndim_pad_zy)
 
     def subset(self, index):
 
@@ -148,6 +152,10 @@ class ScatteringData(torch.utils.data.TensorDataset):
         idx_train, idx_test = train_test_split(range(len(self)), test_size = test_size, shuffle = shuffle, random_state = random_state)
 
         return self.subset(idx_train), self.subset(idx_test)
+
+    @property
+    def metadata(self):
+        return ScatteringMetaData(self.qx, self.shapes_dict, self.input_features, self.ndim_x, self.ndim_pad_x, self.ndim_y, self.ndim_z, self.ndim_pad_zy)
 
     @property
     def X(self):
