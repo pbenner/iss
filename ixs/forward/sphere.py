@@ -160,7 +160,6 @@ class Sphere(Simulation):
                 success = False
         return success
 
-
     def save_data(self, uncertainty = "ISigma", directory='.', for_SasView = True):
         """
         Saves .dat file. If slice  of 3D Fourier Transform was created only, operates on that slice, otherwise on whole data.

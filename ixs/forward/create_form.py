@@ -43,10 +43,10 @@ class DensityData:
     """
     A class with Fourier Transform functionality. You can set any calculated density as an attribute and calculate FT with different  methods. 
     """
-    def __init__(self):
+    def __init__(self) -> None:
         pass
     
-    def set_density(self, density):
+    def set_density(self, density) -> None:
         """
         set density matrix from numpy array. The number of points is taken from the first dimension
         Arguments:
@@ -67,13 +67,13 @@ class DensityData:
         """
         return self._FTI_custom
 
-    def pin_memory(self):
+    def pin_memory(self) -> None:
         """
         Copies the tensor to pinned memory
         """
         self.density.pin_memory()
 
-    def calculate_torch_FTI(self, device = 'cuda', slice = None, dtype = torch.complex64, memory_stats = False):
+    def calculate_torch_FTI(self, device : str = 'cuda', slice : int = None, dtype = torch.complex64, memory_stats : bool = False):
         """
         Calculates Fourier transform of a 3D box with torch fftn and shifts to nyquist frequency
         Arguments:
@@ -121,7 +121,7 @@ class DensityData:
         for i in range(FT.shape[1]):
             for j in range(FT.shape[2]):  
                 FT_1D = FT[:,i,j].to('cuda')
-                matrix_to_cuda = torch.cuda.memory_allocated() 
+                matrix_to_cuda = torch.cuda.memory_allocated()
                 FT_1D = torch.fft.fft(FT_1D, norm = 'forward')
                 matrix_fft = torch.cuda.memory_reserved()
                 FT[:,i,j] = FT_1D.cpu()
@@ -140,7 +140,7 @@ class DensityData:
                 del FT_1D
         return FT, matrix_to_cuda, matrix_fft
 
-    def calculate_custom_FTI(self, three_d = False,  device = 'cuda', slice = None, dtype = torch.complex64, smallest_memory = False, memory_stats = False):
+    def calculate_custom_FTI(self, three_d : bool = False,  device : str = 'cuda', slice = None, dtype = torch.complex64, smallest_memory : bool = False, memory_stats : bool = False):
         """
         Calculate FTI with custom algorihtm with less memory requirments. 
         Arguments:
@@ -177,7 +177,7 @@ class DensityData:
                         FT_1D = torch.fft.fft(FT_1D, norm = 'forward')
                         FT[:,i,j] = FT_1D.cpu()
                         del FT_1D
-                
+
             else: 
                 matrix_to_cuda = 0
                 matrix_fft = 0
@@ -227,7 +227,7 @@ class DensityData:
             FT = torch.abs(FT_slice)**2
             self._FTI_custom = FT.cpu().detach()
 
-    def mask_FT_to_sphere(self, instance, box_bins = None, fill_value = np.nan):
+    def mask_FT_to_sphere(self, instance, box_bins = None, fill_value = np.nan) -> None:
         """
         The values in the matrix have circular symmetry and the values in the corners of the matrix are underrepresented and will not be considered in the rebinning.
         Arguments: 
@@ -282,7 +282,7 @@ class Simulation(DensityData):
         super(Simulation, self).__init__()
 
     @property
-    def volume_fraction(self):
+    def volume_fraction(self) -> float:
         """ 
         Calculate volume fraction as a proportion of non-zero voxels to all voxels in a box
         Returns:
@@ -291,7 +291,7 @@ class Simulation(DensityData):
         return int(self._box.sum())/self.nPoints**3
     
     @property
-    def density(self):
+    def density(self) -> np.ndarray:
         """
         Density is the copy of the simulated box, because the box might be changed at any moment 
         Returns: 
@@ -300,7 +300,7 @@ class Simulation(DensityData):
         return self._box
 
     @property
-    def FTI_sinc(self):
+    def FTI_sinc(self) -> np.ndarray:
         """
         Set the sinc'ed FTI
         Returns:
@@ -308,7 +308,7 @@ class Simulation(DensityData):
         """
         return self.__sinc(self._FTI_custom)
 
-    def __initialize_box(self):
+    def __initialize_box(self) -> None:
         """
         Creates a 1D gridding and expands it into a 3D box filled with voxels of size 'grid_space'.
         The box is symmetric around 0 on all axes with the predefined grid points. 
@@ -320,7 +320,7 @@ class Simulation(DensityData):
         self.grid_space = self.box_size/(self.nPoints-1)
         self.__set_q()
     
-    def __set_q(self):
+    def __set_q(self) -> None:
         """
         Sets a scattering vector Q in 1D in nm-1. because of the symmetry, they are the same and each direction, and scattering vectors in 2D/3D are spared for the sake of memory.
         """
@@ -349,7 +349,7 @@ class Simulation(DensityData):
         Q =  torch.sqrt(self.qx[slice]**2 + q2y**2 + q2z**2)
         return Q
 
-    def __sinc(self, FTI):
+    def __sinc(self, FTI : np.ndarray) -> np.ndarray:
         """
         Applies the sinc function to the voxel and multiplies the result with the Fourier Transformed Structure. New attribute is 
         created as a convolution of sinc'ed voxel with the Fourier Transform of the structure
@@ -372,9 +372,9 @@ class Simulation(DensityData):
         try:
             self.FTI_sinc_masked = self.mask_FT_to_sphere(self.FTI_sinc, box_bins = self.nPoints)
         except AttributeError:
-            print ('compute sinc function `FTI_sinc()` first!' )
+            print('compute sinc function `FTI_sinc()` first!' )
 
-    def __determine_Error(self,row):
+    def __determine_Error(self, row : pd.Series)-> float:
         """ 
         Calculate the Error as a sum of squared root of sum of squared values normaized by number of measurments. If a bin is empty returns NaN.
         Arguments:
@@ -387,7 +387,7 @@ class Simulation(DensityData):
         else:
             return np.sqrt((row**2).sum())/ len(row)
 
-    def __determine_std(self,row):
+    def __determine_std(self, row : pd.Series) -> float:
         """ 
         Calulate the standard deviation.
         Arguments:
@@ -400,9 +400,9 @@ class Simulation(DensityData):
         else:
             return row.std(ddof = 1, skipna = True)
 
-    def __determine_sem(self, row):
+    def __determine_sem(self, row : pd.Series):
         """ 
-        Calculate  the standard error of the mean.
+        Calculate the standard error of the mean.
         Arguments:
             row (pandas.Series): the I or Q measurmets falling into one bin
         Returns:
@@ -413,7 +413,7 @@ class Simulation(DensityData):
         else:
             return row.sem(ddof = 1, skipna = True)
 
-    def __determine_ISigma(self, df, IEMin):
+    def __determine_ISigma(self, df, IEMin) -> np.ndarray:
         """ 
         Calculate the maximum  within the Error of I, standard error of the mean of I or the value of I multiplie by some coefficient IEmin
         Arguments:
@@ -424,7 +424,7 @@ class Simulation(DensityData):
         """
         return np.max([df.ISEM, df.IError, df.I*IEMin])
 
-    def __determine_QSigma(self, df, QEMin):
+    def __determine_QSigma(self, df, QEMin) -> np.ndarray:
         """ 
         Calculate the maximum  within the Error of Q(if present), standard error of the mean of Q or the value of Q multiplie by some coefficient QEmin
         Arguments:
@@ -438,7 +438,7 @@ class Simulation(DensityData):
         else:
             return np.max([df.QSEM, df.Q*QEMin])
 
-    def __reBinSlice(self, df, bins, IEMin, QEMin):
+    def __reBinSlice(self, df, bins, IEMin, QEMin) -> pd.DataFrame:
 
         """
         Unweighted rebinning funcionality with extended uncertainty estimation, adapted from the datamerge methods,
