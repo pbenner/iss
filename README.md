@@ -1,5 +1,4 @@
-# Inverse X-ray scattering (IXS)
-
+# Inverse Model for Small-angle X-ray Scattering (IXS)
 
 
 ## Getting started
