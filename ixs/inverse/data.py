@@ -97,7 +97,7 @@ class ScatteringData(torch.utils.data.TensorDataset):
         qx = None
 
         # Check dimensions
-        assert ndim_x + ndim_pad_x == ndim_y + ndim_z + ndim_pad_zy, "Dimensions don't match up"
+        assert ndim_x + ndim_pad_x == ndim_y + ndim_z + ndim_pad_zy, f'Dimensions do not match: ndim_x={ndim_x} + ndim_pad_x={ndim_pad_x} == ndim_y={ndim_y} + ndim_z={ndim_z} + ndim_pad_zy={ndim_pad_zy}'
 
         outputs = torch.zeros(len(files), ndim_y, dtype = torch.float32)
         inputs  = torch.zeros(len(files), ndim_x, dtype = torch.float32)

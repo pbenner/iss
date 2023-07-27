@@ -251,17 +251,27 @@ class InvertibleSASModel():
 
         return self.lit_model._test(data)
 
-    def predict_forward(self, data : ScatteringData):
+    def predict_forward(self, data):
+
+        if isinstance(data, ScatteringData):
+            X = data.X
+        else:
+            X = data
 
         with torch.no_grad():
-            y = self.lit_model.model(data.X, rev = False)
+            y = self.lit_model.model(X, rev = False)
 
         return y
 
-    def predict_backward(self, data : ScatteringData):
+    def predict_backward(self, data):
+
+        if isinstance(data, ScatteringData):
+            y = data.y
+        else:
+            y = data
 
         with torch.no_grad():
-            X = self.lit_model.model(data.y, rev = True)
+            X = self.lit_model.model(y, rev = True)
 
         return X
 
