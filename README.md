@@ -9,4 +9,4 @@ conda create -n ixs
 
 # Authors
 
-Sofya Laskina [Website](https://bamescience.github.io/team/sofya/index.html) [Github](https://github.com/sofyalaski/)
+Sofya Laskina [[Website]](https://bamescience.github.io/team/sofya/index.html) [[Github]](https://github.com/sofyalaski/)
