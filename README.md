@@ -1,10 +1,10 @@
-# Inverse Model for Small-angle X-ray Scattering (IXS)
+# Inverse Model for Small-angle Scattering (ISS)
 
 ## Getting started
 
 Create a new conda environment:
 ```bash
-conda create -n ixs
+conda create -n iss
 ```
 
 # Authors
